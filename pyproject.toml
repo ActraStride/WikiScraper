@@ -1,17 +1,17 @@
-    [build-system]
-    requires = ["setuptools>=64.0", "wheel"]
-    build-backend = "setuptools.build_meta"
+[project]
+name = "wikiscraper" 
+version = "0.1.0"
+description = "" 
+dependencies = [
+    "click >= 8.1.7",
+    "beautifulsoup4 >= 4.10.0",
+    "requests >= 2.28.0",
+    "urllib3 >= 1.26.0",
+    "lxml >= 4.6.0"
+]
 
-    [project]
-    name = "radex" 
-    version = "0.1.0"
-    description = "" 
-    dependencies = [
-        "click >= 8.1.7",
-        "beautifulsoup4 >= 4.10.0"
-    ]
+[project.scripts]
+wiki = "src.cli.cli:wiki"
 
-    [project.scripts]
-    TODOCOMMAND = "app.cli.cli:TODOCOMMAND"
-    [tool.setuptools.packages]
-    find = { include = ["app"] }
+[tool.setuptools.packages]
+find = { include = ["src"] }

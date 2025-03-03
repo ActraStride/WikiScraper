@@ -13,7 +13,7 @@ if __name__ == "__main__":
     setup_logging(project_root=LOG_DIR)
     with WikiScraper() as scraper:
         try:
-            soup = scraper.get_page_soup("Filosofia")
-            print(f"Título de la página: {soup.title.string}")
+            internal_links = scraper.get_page_links("Python", link_type="linkshere")
+            print(f"Enlaces internos: {internal_links[:10]}")  # Imprimir los primeros 10
         except Exception as e:
             print(f"Error al obtener la página: {e}")

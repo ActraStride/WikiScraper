@@ -18,7 +18,7 @@ Uso básico:
 """
 
 import logging
-from typing import Final, Optional, Set
+from typing import Final, Optional, Set, List
 import requests
 from bs4 import BeautifulSoup, FeatureNotFound
 from urllib.parse import quote, urljoin
@@ -56,6 +56,16 @@ class LanguageNotSupportedError(WikiScraperError):
 
 class NonHTMLContentError(WikiScraperError):
     """Excepción para respuestas con contenido no HTML."""
+    pass
+
+
+class SearchError(WikiScraperError):
+    """Excepción general para errores durante la búsqueda en Wikipedia."""
+    pass
+
+
+class NoSearchResultsError(SearchError):
+    """Excepción específica para cuando la búsqueda no devuelve resultados."""
     pass
 
 
@@ -214,6 +224,211 @@ class WikiScraper:
         except Exception as e:
             logger.error("Error inesperado: %s - %s", type(e).__name__, e, exc_info=True)
             raise WikiScraperError(f"Error inesperado: {type(e).__name__} - {e}") from e
+        
+    def search_wikipedia(self, query: str, limit: int = 5) -> List[str]:
+        """
+        Busca títulos de páginas en Wikipedia usando la API.
+
+        Args:
+            query: Término de búsqueda.
+            limit: Número máximo de resultados a devolver.
+
+        Returns:
+            Una lista de títulos de páginas de Wikipedia que coinciden con la búsqueda.
+
+        Raises:
+            SearchError: Si hay un error en la solicitud a la API.
+            NoSearchResultsError: Si la búsqueda no devuelve resultados.
+        """
+        search_url = urljoin(self.base_url, "w/api.php")
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "search",
+            "srsearch": query,
+            "srlimit": limit,
+            "srprop": "",
+        }
+
+        logger.info(f"Iniciando búsqueda en Wikipedia para la consulta: '{query}' con límite de {limit} resultados.")
+        logger.debug(f"URL de búsqueda: {search_url} | Parámetros: {params}")
+
+        try:
+            response = self.session.get(search_url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            logger.info("Respuesta recibida de la API de Wikipedia exitosamente.")
+            data = response.json()
+            logger.debug(f"Datos recibidos de la API: {data}")
+
+            # Verificar errores de la API
+            if "error" in data:
+                error_info = data["error"].get("info", "Error desconocido en la API de Wikipedia")
+                logger.error(f"Error en la API de Wikipedia: {error_info}")
+                raise SearchError(f"Error en la API: {error_info}")
+
+            # Verificar estructura de la respuesta
+            if "query" not in data or "search" not in data["query"]:
+                logger.error(f"Estructura inesperada en la respuesta para la búsqueda '{query}'.")
+                raise NoSearchResultsError(f"La búsqueda '{query}' no devolvió resultados.")
+
+            results = [item["title"] for item in data["query"]["search"]]
+            logger.info(f"Búsqueda completada. Se encontraron {len(results)} resultados para '{query}'.")
+
+            # Verificar si hay resultados vacíos
+            if not results:
+                logger.warning(f"La búsqueda '{query}' no devolvió resultados.")
+                raise NoSearchResultsError(f"La búsqueda '{query}' no devolvió resultados.")
+
+            return results
+
+        except requests.RequestException as e:
+            logger.exception(f"Error en la búsqueda en Wikipedia: {e}")
+            raise SearchError(f"Error en la búsqueda en Wikipedia: {e}") from e
+        except (KeyError, ValueError) as e:
+            logger.exception(f"Error procesando la respuesta de la API: {e}")
+            raise SearchError(f"Error procesando la respuesta de la API: {e}") from e
+
+    def get_page_soup_with_search(self, query: str) -> BeautifulSoup:
+        """
+        Obtiene el contenido de una página utilizando la búsqueda de Wikipedia.
+
+        Args:
+            query: Término de búsqueda o título de la página.
+
+        Returns:
+            BeautifulSoup: Objeto parseado con el contenido de la página.
+
+        Raises:
+            WikiScraperError: Si hay errores en la búsqueda o al obtener la página.
+            NoSearchResultsError: Si no se encuentran resultados de búsqueda.
+        """
+        logger.info(f"Iniciando obtención de contenido para la consulta: '{query}'.")
+        try:
+            # Paso 1: Buscar el término
+            search_results = self.search_wikipedia(query)  # search_wikipedia ahora maneja resultados vacíos
+            logger.info(f"Resultados de búsqueda obtenidos: {search_results}")
+
+            # Paso 2: Intentar recuperar la primera página
+            first_result_title = search_results[0]
+            logger.info(f"Recuperando contenido de la página: '{first_result_title}'.")
+            page_soup = self.get_page_soup(first_result_title)
+            logger.info(f"Contenido de la página '{first_result_title}' obtenido exitosamente.")
+            return page_soup
+
+        except WikiScraperError as e:
+            logger.error(f"Error al obtener '{first_result_title}': {str(e)}")
+            raise  # Relanza la excepción preservando el traceback original
+
+    
+    def get_page_links(self, page_title: str,
+                       link_type: str = "internal",  # 'internal', 'external', 'linkshere', 'interwiki'
+                       limit: int = 500,
+                       namespace: Optional[int] = None) -> List[str]:
+        """
+        Obtiene los enlaces de una página de Wikipedia usando la API.
+
+        Args:
+            page_title: Título de la página.
+            link_type: Tipo de enlace ('internal', 'external', 'linkshere', 'interwiki').
+            limit: Número máximo de enlaces a devolver (límite de la API: 500 para usuarios, 5000 para bots).
+            namespace: Filtra por espacio de nombres (ej: 0 para principal, 1 para discusión, etc.).
+                       Ver https://www.mediawiki.org/wiki/Help:Namespaces/es
+
+        Returns:
+            Una lista de títulos de páginas (para enlaces internos y linkshere),
+            URLs (para enlaces externos), o prefijos interwiki (para enlaces interwiki).
+
+        Raises:
+            SearchError: Si hay un error en la solicitud a la API.
+            ValueError:  Si el tipo de enlace es inválido.
+        """
+
+        if link_type not in ["internal", "external", "linkshere", "interwiki"]:
+            raise ValueError("Tipo de enlace inválido.  Debe ser 'internal', 'external', 'linkshere' o 'interwiki'.")
+
+        if link_type == "internal":
+            module = "links"
+            param_prefix = "pl"  # Parámetro para el módulo 'links'
+            result_key = "links"
+        elif link_type == "external":
+            module = "extlinks"
+            param_prefix = "el"  # Parámetro para el módulo 'extlinks'
+            result_key = "extlinks"
+        elif link_type == "linkshere":
+            module = "linkshere"
+            param_prefix = "lh" # Parámetro para el módulo 'linkshere'
+            result_key = "linkshere"
+        elif link_type == "interwiki":
+            module = "iwlinks"
+            param_prefix = "iw" # Parámetro para el módulo 'iwlinks'
+            result_key = "iwlinks"
+
+        base_url = urljoin(self.base_url, "w/api.php")
+        params = {
+            "action": "query",
+            "format": "json",
+            "titles": page_title,
+            f"{param_prefix}limit": limit,
+            "prop": module,
+        }
+        if namespace is not None:
+            params[f"{param_prefix}namespace"] = namespace
+
+        logger.info(f"Obteniendo enlaces {link_type} de '{page_title}' con límite {limit}.")
+        logger.debug(f"URL: {base_url} | Parámetros: {params}")
+
+        results = []
+        continue_param = {}  # Para paginación
+
+        while True:  # Bucle para manejar la paginación
+            try:
+                # Combinar parámetros de continuación con los parámetros base
+                request_params = params.copy()
+                request_params.update(continue_param)
+
+                response = self.session.get(base_url, params=request_params, timeout=self.timeout)
+                response.raise_for_status()
+                data = response.json()
+                logger.debug(f"Datos recibidos de la API: {data}")
+
+
+                if "error" in data:
+                    error_info = data["error"].get("info", "Error desconocido en la API de Wikipedia")
+                    logger.error(f"Error en la API de Wikipedia: {error_info}")
+                    raise SearchError(f"Error en la API: {error_info}")
+
+                if "query" not in data or "pages" not in data["query"]:
+                    logger.error(f"Estructura inesperada en la respuesta para '{page_title}'.")
+                    raise SearchError(f"Estructura inesperada en la respuesta de la API.")
+
+                # La API devuelve las páginas con un ID como clave.  Iterar sobre ellas.
+                for page_id, page_data in data["query"]["pages"].items():
+                    if result_key in page_data:
+                        for item in page_data[result_key]:
+                            if link_type == "external":
+                                results.append(item["*"])  # URL del enlace externo
+                            elif link_type == "interwiki":
+                                 results.append(item["prefix"] + ":" + item["*"])  # prefijo y pagina
+                            else:
+                                results.append(item["title"])  # Título de la página
+
+                # Paginación:  Verificar si hay más resultados
+                if "continue" in data:
+                    continue_param = data["continue"]
+                    logger.debug(f"Continuando paginación: {continue_param}")
+                else:
+                    break  # No hay más resultados
+
+            except requests.RequestException as e:
+                logger.exception(f"Error al obtener enlaces de Wikipedia: {e}")
+                raise SearchError(f"Error en la solicitud a la API: {e}") from e
+            except (KeyError, ValueError) as e:
+                logger.exception(f"Error procesando la respuesta de la API: {e}")
+                raise SearchError(f"Error procesando la respuesta de la API: {e}") from e
+
+        logger.info(f"Se obtuvieron {len(results)} enlaces {link_type} de '{page_title}'.")
+        return results
+            
 
     def __enter__(self):
         return self

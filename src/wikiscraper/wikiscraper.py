@@ -71,7 +71,7 @@ class NoSearchResultsError(SearchError):
 
 class WikiScraper:
     """
-    Clase profesional para realizar scraping de páginas de Wikipedia de manera segura y eficiente.
+    Clase profesional para realizar scraping de páginas de Wikipedia
 
     Atributos:
         language (str): Código de idioma de Wikipedia (default: "es")
@@ -332,7 +332,7 @@ class WikiScraper:
             link_type: Tipo de enlace ('internal', 'external', 'linkshere', 'interwiki').
             limit: Número máximo de enlaces a devolver (límite de la API: 500 para usuarios, 5000 para bots).
             namespace: Filtra por espacio de nombres (ej: 0 para principal, 1 para discusión, etc.).
-                       Ver https://www.mediawiki.org/wiki/Help:Namespaces/es
+                       Ver https://www.mediawiki.org/wiki/Help:Namespaces
 
         Returns:
             Una lista de títulos de páginas (para enlaces internos y linkshere),

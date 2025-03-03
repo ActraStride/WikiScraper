@@ -1,0 +1,17 @@
+    [build-system]
+    requires = ["setuptools>=64.0", "wheel"]
+    build-backend = "setuptools.build_meta"
+
+    [project]
+    name = "radex" 
+    version = "0.1.0"
+    description = "" 
+    dependencies = [
+        "click >= 8.1.7",
+        "beautifulsoup4 >= 4.10.0"
+    ]
+
+    [project.scripts]
+    TODOCOMMAND = "app.cli.cli:TODOCOMMAND"
+    [tool.setuptools.packages]
+    find = { include = ["app"] }

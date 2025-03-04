@@ -137,6 +137,44 @@ class WikiCLI:
             click.secho(f"❌ Error al realizar la búsqueda: {e}", fg="red", bold=True, err=True)
             sys.exit(3) # Usa sys.exit para indicar fallo del comando dentro de la CLI
 
+    
+          
+    def execute_get_command(self, query: str) -> None:
+        """
+        Ejecuta el comando 'get' para obtener el texto de la primera página de Wikipedia
+        que coincide con la búsqueda.
+
+        Args:
+            query: Término de búsqueda para la página de Wikipedia.
+        """
+        logger = self._logger
+        logger.info(f"Iniciando comando 'get' para buscar y obtener la página de Wikipedia para: '{query}'")
+
+        try:
+            search_results: List[str] = self.scraper.search_wikipedia(query=query, limit=1)
+            if not search_results:
+                click.secho(f"No se encontraron páginas para la búsqueda: '{query}'.", fg="yellow")
+                logger.warning(f"No se encontraron páginas para la búsqueda: '{query}'.")
+                return  # Salir amigablemente si no hay resultados
+            else:
+                page_title: str = search_results[0]  # Tomar el primer resultado
+                logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto de la página...")
+                page_text: str = self.scraper.get_page_raw_text(page_title=page_title)
+                if page_text:
+                    click.secho(f"Texto de la página '{page_title}':", fg="green", bold=True)
+                    click.echo(page_text)  # Imprimir el texto de la página
+                    logger.info(f"Texto de la página '{page_title}' mostrado con éxito.")
+                else:
+                    click.secho(f"No se pudo obtener el texto de la página '{page_title}'.", fg="yellow")
+                    logger.warning(f"No se pudo obtener el texto de la página '{page_title}'.")
+
+        except Exception as e:
+            logger.error(f"Error durante el comando 'get' para '{query}': {e}", exc_info=True)
+            click.secho(f"❌ Error al obtener la página para '{query}': {e}", fg="red", bold=True, err=True)
+            sys.exit(3) # Usa sys.exit para indicar fallo del comando dentro de la CLI
+
+    
+
 
 @click.group()
 @click.option(
@@ -235,6 +273,27 @@ def search(ctx: click.Context, query: str, limit: int) -> None:
     try:
         cli_instance: WikiCLI = ctx.obj
         cli_instance.execute_search_command(query, limit)
+    except Exception as e:
+        logging.getLogger(__name__).error("Error durante comando de búsqueda", exc_info=True)
+        click.secho(
+            f"❌ Fallo en comando de búsqueda: {e}",
+            fg="red",
+            bold=True,
+            err=True
+        )
+        sys.exit(3)
+
+
+@cli.command()
+@click.argument('query', type=str)
+@click.pass_context
+def get(ctx: click.Context, query: str) -> None:
+    """
+    Trae el texto crudo del primer resultado para el termino
+    """
+    try:
+        cli_instance: WikiCLI = ctx.obj
+        cli_instance.execute_get_command(query)
     except Exception as e:
         logging.getLogger(__name__).error("Error durante comando de búsqueda", exc_info=True)
         click.secho(

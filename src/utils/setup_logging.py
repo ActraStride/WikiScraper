@@ -101,7 +101,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
         "loggers": {
             # Logger raíz configura todos los módulos
             "": {
-                "handlers": ["rotating_file", "console"],
+                "handlers": ["rotating_file"],
                 "level": log_level,
                 "propagate": False,
             },

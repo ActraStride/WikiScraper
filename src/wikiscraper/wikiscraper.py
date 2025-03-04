@@ -288,6 +288,8 @@ class WikiScraper:
             logger.exception(f"Error procesando la respuesta de la API: {e}")
             raise SearchError(f"Error procesando la respuesta de la API: {e}") from e
 
+    
+
     def get_page_soup_with_search(self, query: str) -> BeautifulSoup:
         """
         Obtiene el contenido de una página utilizando la búsqueda de Wikipedia.
@@ -319,6 +321,81 @@ class WikiScraper:
             logger.error(f"Error al obtener '{first_result_title}': {str(e)}")
             raise  # Relanza la excepción preservando el traceback original
 
+
+    
+    def get_page_raw_text(self, page_title: str) -> str:
+        """
+        Obtiene el contenido de un artículo de Wikipedia en texto plano utilizando la API.
+
+        Args:
+            page_title: Título de la página de Wikipedia.
+
+        Returns:
+            str: El contenido del artículo en texto plano.
+
+        Raises:
+            WikiScraperError: Si hay un error al comunicarse con la API o al procesar la respuesta.
+            NoSearchResultsError: Si la página no se encuentra o no tiene contenido.
+        """
+        api_url = urljoin(self.base_url, "w/api.php")
+        params = {
+            "action": "query",
+            "format": "json",
+            "titles": page_title,
+            "prop": "extracts",
+            "explaintext": "true",  # Importante para obtener texto plano
+            "exlimit": "1",  # Limitar a una página (la solicitada)
+        }
+
+        logger.info(f"Obteniendo texto plano para '{page_title}' desde la API.")
+        logger.debug(f"URL de la API: {api_url} | Parámetros: {params}")
+
+        try:
+            response = self.session.get(api_url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            logger.debug(f"Respuesta de la API: {data}")
+
+            if "error" in data:
+                error_info = data["error"].get("info", "Error desconocido en la API de Wikipedia")
+                logger.error(f"Error en la API de Wikipedia: {error_info}")
+                raise SearchError(f"Error en la API: {error_info}")
+
+            query = data.get("query", {})
+            pages = query.get("pages", {})
+
+            if not pages:
+                logger.warning(f"No se encontró la página '{page_title}' en la respuesta de la API.")
+                raise NoSearchResultsError(f"No se encontró la página '{page_title}'.")
+
+            # Las páginas están indexadas por pageid, normalmente solo habrá una
+            page_content = None
+            for page_id in pages:
+                page_data = pages[page_id]
+                if "extract" in page_data:
+                    page_content = page_data["extract"]
+                    break  # Tomamos el contenido de la primera página (debería ser la única con exlimit=1)
+                elif "missing" in page_data:
+                    logger.warning(f"Página '{page_title}' no encontrada (missing en la API).")
+                    raise NoSearchResultsError(f"Página '{page_title}' no encontrada.")
+                else:
+                    logger.warning(f"Respuesta inesperada de la API para '{page_title}': {page_data}")
+                    raise SearchError(f"Respuesta inesperada de la API al obtener '{page_title}'.")
+
+            if page_content:
+                logger.info(f"Texto plano obtenido exitosamente para '{page_title}'.")
+                return page_content
+            else:
+                logger.warning(f"No se pudo extraer el contenido de texto plano para '{page_title}'.")
+                raise NoSearchResultsError(f"No se pudo obtener el contenido de texto plano para '{page_title}'.")
+
+
+        except requests.RequestException as e:
+            logger.exception(f"Error al obtener texto plano de la API para '{page_title}': {e}")
+            raise SearchError(f"Error de comunicación con la API: {e}") from e
+        except (KeyError, ValueError) as e:
+            logger.exception(f"Error al procesar la respuesta de la API para '{page_title}': {e}")
+            raise SearchError(f"Error al procesar la respuesta de la API: {e}") from e
     
     def get_page_links(self, page_title: str,
                        link_type: str = "internal",  # 'internal', 'external', 'linkshere', 'interwiki'

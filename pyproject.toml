@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-wiki = "src.cli.cli:main"
+wiki = "src.cli:main"
 
 [tool.setuptools.packages]
 find = { include = ["src"] }

@@ -10,18 +10,20 @@ Provee:
 
 import sys
 from pathlib import Path
-from typing import Any, NoReturn, List
+from typing import Any, NoReturn, List, Optional
 
 import click
 import logging
 
 from src.wikiscraper import WikiScraper, LanguageNotSupportedError
+from src.storage import FileSaver
 from src.utils import setup_logging, LoggingSetupError
 
 # Constantes
 DEFAULT_LANGUAGE: str = "es"
 DEFAULT_TIMEOUT: int = 15
 SUPPORTED_LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"]
+DEFAULT_OUTPUT_DIR = "./output_files"
 
 
 class CLIError(Exception):
@@ -62,6 +64,7 @@ class WikiCLI:
         try:
             self._validate_inputs(language, timeout, log_level)
             self.scraper = WikiScraper(language=language, timeout=timeout)
+            self.file_saver = FileSaver()
             self._logger.debug("Componentes inicializados correctamente")
         except (LanguageNotSupportedError, ValueError) as e:
             self._logger.critical(f"Error de configuración: {e}", exc_info=True)
@@ -88,20 +91,6 @@ class WikiCLI:
         Ejecuta un comando de prueba para verificar el funcionamiento básico de la CLI.
         """
         self._logger.info("Iniciando comando de prueba...")
-        # click.secho("🎄", fg="green", bold=True, nl=False)   # Árbol de Navidad en verde brillante
-        # click.secho(" ✨ ", fg="yellow", bold=False, nl=False) # Destellos amarillos suaves
-        # click.secho("[ ", fg="white", nl=False)             # Corchete blanco
-        # click.secho("PRUEBA", fg="red", bold=True, nl=False) # Texto "PRUEBA NAVIDEÑA" en rojo brillante
-        # click.secho(" ]", fg="white", nl=False)             # Corchete blanco
-        # click.secho(" ¿Ya es Navidad ", fg="white", nl=False) # Primera parte del mensaje en blanco
-        # click.secho("🤨", fg="red", bold=True, nl=False)    # "100%" en rojo brillante
-        # click.secho("?", fg="white", bold=False, nl=False)     # Exclamación en blanco suave
-        # click.secho(" Sistema listo para las fiestas.", fg="white", italic=True, nl=False) # Frase final en cursiva blanca
-        # click.secho(" 🎁🌟", fg="yellow", bold=True)      # Regalo y estrella dorados brillantes
-
-
-
-
         click.secho("🕸️ ", fg="white", nl=False)
         click.secho(" 👻 ", fg="white", nl=False)
         click.secho("[ ", fg="magenta", nl=False)
@@ -139,7 +128,7 @@ class WikiCLI:
 
     
           
-    def execute_get_command(self, query: str) -> None:
+    def execute_get_command(self, query: str, save: bool) -> None:
         """
         Ejecuta el comando 'get' para obtener el texto de la primera página de Wikipedia
         que coincide con la búsqueda.
@@ -151,22 +140,33 @@ class WikiCLI:
         logger.info(f"Iniciando comando 'get' para buscar y obtener la página de Wikipedia para: '{query}'")
 
         try:
-            search_results: List[str] = self.scraper.search_wikipedia(query=query, limit=1)
-            if not search_results:
-                click.secho(f"No se encontraron páginas para la búsqueda: '{query}'.", fg="yellow")
-                logger.warning(f"No se encontraron páginas para la búsqueda: '{query}'.")
-                return  # Salir amigablemente si no hay resultados
-            else:
-                page_title: str = search_results[0]  # Tomar el primer resultado
-                logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto de la página...")
-                page_text: str = self.scraper.get_page_raw_text(page_title=page_title)
-                if page_text:
-                    click.secho(f"Texto de la página '{page_title}':", fg="green", bold=True)
-                    click.echo(page_text)  # Imprimir el texto de la página
-                    logger.info(f"Texto de la página '{page_title}' mostrado con éxito.")
+            with self.scraper as scraper_instance: # 'scraper_instance' es el mismo que self.scraper
+                search_results: List[str] = scraper_instance.search_wikipedia(query=query, limit=1)
+                if not search_results:
+                    click.secho(f"No se encontraron páginas para la búsqueda: '{query}'.", fg="yellow")
+                    logger.warning(f"No se encontraron páginas para la búsqueda: '{query}'.")
+                    return
                 else:
-                    click.secho(f"No se pudo obtener el texto de la página '{page_title}'.", fg="yellow")
-                    logger.warning(f"No se pudo obtener el texto de la página '{page_title}'.")
+                    page_title: str = search_results[0]
+                    logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto de la página...")
+                    page_text: str = scraper_instance.get_page_raw_text(page_title=page_title)
+                    if page_text:
+                        click.secho(f"Texto de la página '{page_title}':", fg="green", bold=True)
+                        click.echo(page_text)
+                        logger.info(f"Texto de la página '{page_title}' mostrado con éxito.")
+
+                        if save:
+                            logger.info(f"Se proporcionó la opción de guardado'. Guardando página usando FileSaver...")
+                            try:
+                                saved_path = self.file_saver.save(content=page_text, title=page_title) # Usando file_saver.save()
+                                click.secho(f"Página guardada'", fg="green")
+                                logger.info(f"Página '{page_title}' guardada con éxito")
+                            except Exception as save_error:
+                                logger.error(f"Error al guardar la página' usando FileSaver: {save_error}", exc_info=True)
+                                click.secho(f"❌ Error al guardar la página' usando FileSaver: {save_error}", fg="red", bold=True, err=True)
+                    else:
+                        click.secho(f"No se pudo obtener el texto de la página '{page_title}'.", fg="yellow")
+                        logger.warning(f"No se pudo obtener el texto de la página '{page_title}'.")
 
         except Exception as e:
             logger.error(f"Error durante el comando 'get' para '{query}': {e}", exc_info=True)
@@ -286,24 +286,41 @@ def search(ctx: click.Context, query: str, limit: int) -> None:
 
 @cli.command()
 @click.argument('query', type=str)
+@click.option('--save', '-s',  # Cambiado a --save y -s
+              is_flag=True,  # Indica que es un flag booleano (True si se usa, False si no)
+              default=False,  # Ahora por defecto no guarda
+              help="Guarda la salida en un archivo en lugar de mostrarla en consola.") # Help actualizado
 @click.pass_context
-def get(ctx: click.Context, query: str) -> None:
+def get(ctx: click.Context, query: str, save: bool) -> None: # output_dir reemplazado por save: bool
     """
-    Trae el texto crudo del primer resultado para el termino
+    Realiza una acción (antes traía texto crudo, ahora acción simplificada) y
+    dirige la salida a la consola o a un archivo.
+
+    Si no se proporciona --save, la salida se muestra en la consola.
+    Si se proporciona --save, la salida se guarda como archivo en un directorio predeterminado (o lógica interna).
+
+    \b
+    Ejemplos:
+        wiki get <query>  # Salida en consola
+        wiki get <query> --save  # Guardar en archivo (ubicación predeterminada)
+        wiki get <query> -s     # Guardar en archivo (ubicación predeterminada)
     """
+    logger = logging.getLogger(__name__)
+
     try:
-        cli_instance: WikiCLI = ctx.obj
-        cli_instance.execute_get_command(query)
+        cli_instance: click.Context = ctx.obj #  Asumiendo que ctx.obj contiene la instancia de WikiCLI
+        # Ahora pasamos 'save' en lugar de 'output_dir'
+        cli_instance.execute_get_command(query, save) #  La lógica de guardar o no estará en execute_get_command
+
     except Exception as e:
-        logging.getLogger(__name__).error("Error durante comando de búsqueda", exc_info=True)
+        logger.error("Error durante comando get", exc_info=True)
         click.secho(
-            f"❌ Fallo en comando de búsqueda: {e}",
+            f"❌ Fallo en comando get: {e}",
             fg="red",
             bold=True,
             err=True
         )
         sys.exit(3)
-
 
 
 def main() -> None:

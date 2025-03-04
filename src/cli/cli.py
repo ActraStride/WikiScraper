@@ -173,7 +173,48 @@ class WikiCLI:
             click.secho(f"❌ Error al obtener la página para '{query}': {e}", fg="red", bold=True, err=True)
             sys.exit(3) # Usa sys.exit para indicar fallo del comando dentro de la CLI
 
+
+
+    def execute_map_command(self, query: str, depth: int) -> None:
+        """
+        Ejecuta el comando 'map' para mapear recursivamente los links internos de una página de Wikipedia
+        hasta la profundidad especificada.
+        
+        Args:
+            query: Título de la página de Wikipedia a mapear.
+            depth: Nivel de profundidad (niveles de recursión).
+        """
+        logger = self._logger
+        logger.info(f"Iniciando comando 'map' para la página '{query}' con profundidad {depth}")
+
+        def recursive_map(page_title: str, current_depth: int, max_depth: int, visited: set) -> dict:
+            if current_depth > max_depth or page_title in visited:
+                return {}
+            visited.add(page_title)
+            logger.debug(f"Mapeando página '{page_title}' en profundidad {current_depth}")
+            try:
+                links = self.scraper.get_page_links(page_title=page_title, link_type="internal")
+            except Exception as e:
+                logger.error(f"Error obteniendo links para la página '{page_title}': {e}", exc_info=True)
+                links = []
+            subtree = {}
+            for link in links:
+                subtree[link] = recursive_map(link, current_depth + 1, max_depth, visited)
+            return subtree
+
+        mapping = recursive_map(query, 1, depth, set())
+
+        def print_mapping(mapping: dict, indent: int = 0) -> None:
+            for page, sublinks in mapping.items():
+                click.echo("  " * indent + f"- {page}")
+                print_mapping(sublinks, indent + 1)
+
+        click.secho(f"Mapa de links para la página '{query}':", fg="green", bold=True)
+        print_mapping({query: mapping})
+        logger.info(f"Comando 'map' completado para la página '{query}'")
     
+
+        
 
 
 @click.group()
@@ -321,6 +362,35 @@ def get(ctx: click.Context, query: str, save: bool) -> None: # output_dir reempl
             err=True
         )
         sys.exit(3)
+
+@cli.command()
+@click.argument('query', type=str)
+@click.option(
+    '--depth',
+    '-d',
+    type=click.IntRange(0, 10),
+    default=1,
+    show_default=True,
+    help="Profundidad de mapeo (niveles de links a seguir)"
+)
+@click.pass_context
+def map(ctx: click.Context, query: str, depth: int) -> None:
+    """
+    Mapea recursivamente los links internos de una página de Wikipedia hasta la profundidad especificada.
+    """
+    try:
+        cli_instance: WikiCLI = ctx.obj
+        cli_instance.execute_map_command(query, depth)
+    except Exception as e:
+        logging.getLogger(__name__).error("Error durante comando map", exc_info=True)
+        click.secho(
+            f"❌ Fallo en comando map: {e}",
+            fg="red",
+            bold=True,
+            err=True
+        )
+        sys.exit(3)
+
 
 
 def main() -> None:

@@ -93,7 +93,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
             },
             "console": {
                 "class": "logging.StreamHandler",
-                "level": "CRITICAL",
+                "level": "DEBUG",
                 "formatter": "standard",
                 "stream": sys.stdout,
             },
@@ -101,7 +101,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
         "loggers": {
             # Logger raíz configura todos los módulos
             "": {
-                "handlers": ["rotating_file"],
+                "handlers": ["rotating_file", "console"],
                 "level": log_level,
                 "propagate": False,
             },

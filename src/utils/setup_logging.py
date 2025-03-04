@@ -59,12 +59,13 @@ def get_log_dir(project_root: Path = None) -> Path:
             f"No se pudo crear el directorio de logs: {e}"
         ) from e
 
-def get_logging_config(log_file_path: Path) -> dict:
+def get_logging_config(log_file_path: Path, log_level: str) -> dict:
     """
     Genera configuración de logging dinámica con type hints y validación.
     
     Args:
         log_file_path: Ruta completa al archivo de log
+        log_level: Nivel de descripción en el log
         
     Returns:
         dict: Configuración de logging compatible con dictConfig
@@ -82,7 +83,7 @@ def get_logging_config(log_file_path: Path) -> dict:
         "handlers": {
             "rotating_file": {
                 "class": "logging.handlers.RotatingFileHandler",
-                "level": "DEBUG",
+                "level": log_level,
                 "formatter": "standard",
                 "filename": str(log_file_path),
                 "encoding": LOG_ENCODING,
@@ -92,7 +93,7 @@ def get_logging_config(log_file_path: Path) -> dict:
             },
             "console": {
                 "class": "logging.StreamHandler",
-                "level": "DEBUG",
+                "level": "CRITICAL",
                 "formatter": "standard",
                 "stream": sys.stdout,
             },
@@ -101,7 +102,7 @@ def get_logging_config(log_file_path: Path) -> dict:
             # Logger raíz configura todos los módulos
             "": {
                 "handlers": ["rotating_file", "console"],
-                "level": "DEBUG",
+                "level": log_level,
                 "propagate": False,
             },
             # Configuración específica para dependencias ruidosas
@@ -112,12 +113,13 @@ def get_logging_config(log_file_path: Path) -> dict:
         },
     }
 
-def setup_logging(project_root: Path = None) -> None:
+def setup_logging(log_level: str, project_root: Path = None) -> None:
     """
     Configura el sistema de logging de la aplicación.
     
     Args:
-        project_root: Ruta al directorio raíz del proyecto
+        project_root: Ruta al directorio raíz del proyecto (default: None)
+        log_level: Nivel de descripción en el log
     
     Raises:
         LoggingSetupError: Si la configuración falla
@@ -128,7 +130,7 @@ def setup_logging(project_root: Path = None) -> None:
         log_file = log_dir / LOG_FILE_NAME
         
         # Configurar logging
-        config = get_logging_config(log_file)
+        config = get_logging_config(log_file, log_level)
         logging.config.dictConfig(config)
         
         # Configurar UTC para tiempos de registro

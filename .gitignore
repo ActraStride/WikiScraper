@@ -109,6 +109,7 @@ dmypy.json
 # End of default values from https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Custom ignores
+docs/
 logs/
 *.log
 *.tmp

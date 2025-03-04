@@ -10,7 +10,7 @@ Provee:
 
 import sys
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, NoReturn, List
 
 import click
 import logging
@@ -112,6 +112,32 @@ class WikiCLI:
         self._logger.debug("Comando de prueba ejecutado con éxito")
 
 
+    def execute_search_command(self, query: str, limit: int) -> None:
+        """
+        Ejecuta el comando de búsqueda utilizando WikiScraper.search_wikipedia.
+
+        Args:
+            query: Término de búsqueda.
+            limit: Número máximo de resultados a obtener.
+        """
+        logger = self._logger  # Usa el logger ya configurado de la instancia
+        logger.info(f"Iniciando búsqueda en Wikipedia para: '{query}' (límite: {limit} resultados)")
+
+        try:
+            results: List[str] = self.scraper.search_wikipedia(query=query, limit=limit)
+            if results:
+                click.secho(f"Resultados de búsqueda para '{query}':", fg="green", bold=True)
+                for i, result in enumerate(results):
+                    click.echo(f"{i+1}. {result}")
+            else:
+                click.secho(f"No se encontraron resultados para '{query}'.", fg="yellow")
+                logger.warning(f"No se encontraron resultados para '{query}'.")
+        except Exception as e:
+            logger.error(f"Error durante la búsqueda para '{query}': {e}", exc_info=True)
+            click.secho(f"❌ Error al realizar la búsqueda: {e}", fg="red", bold=True, err=True)
+            sys.exit(3) # Usa sys.exit para indicar fallo del comando dentro de la CLI
+
+
 @click.group()
 @click.option(
     "--language",
@@ -181,7 +207,7 @@ def cli(ctx: click.Context, language: str, timeout: int, verbose: str) -> None:
 
 @cli.command()
 @click.pass_context
-def prueba(ctx: click.Context) -> None:
+def test(ctx: click.Context) -> None:
     """
     Ejecuta un comando de prueba para verificar la instalación y configuración básica de la CLI.
     """
@@ -197,6 +223,28 @@ def prueba(ctx: click.Context) -> None:
             err=True
         )
         sys.exit(3)
+
+@cli.command()
+@click.argument('query', type=str)
+@click.option('--limit', '-l', type=click.IntRange(1, 10), default=5, show_default=True, help="Máximo número de resultados de búsqueda (1-10)")
+@click.pass_context
+def search(ctx: click.Context, query: str, limit: int) -> None:
+    """
+    Busca páginas en Wikipedia por título o contenido aproximado.
+    """
+    try:
+        cli_instance: WikiCLI = ctx.obj
+        cli_instance.execute_search_command(query, limit)
+    except Exception as e:
+        logging.getLogger(__name__).error("Error durante comando de búsqueda", exc_info=True)
+        click.secho(
+            f"❌ Fallo en comando de búsqueda: {e}",
+            fg="red",
+            bold=True,
+            err=True
+        )
+        sys.exit(3)
+
 
 
 def main() -> None:

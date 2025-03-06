@@ -1,0 +1,101 @@
+# Propósito: Interfaz de línea de comandos (CLI) para el scraper de Wikipedia
+# Características:
+#   - Configuración centralizada de opciones (idioma, timeout, nivel de log)
+#   - Manejo robusto de errores con excepciones específicas (CLIError, LoggingSetupError, etc.)
+#   - Logging estructurado para seguimiento de operaciones
+#   - Sistema de comandos extensible usando click
+
+# CONSTANTES:
+#   DEFAULT_LANGUAGE = "es"
+#   DEFAULT_TIMEOUT = 15
+#   SUPPORTED_LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"]
+#   DEFAULT_OUTPUT_DIR = "./output_files"
+
+# EXCEPCIÓN PERSONALIZADA:
+CLASE CLIError(Exception):
+    # Excepción base para errores de la CLI
+
+# CLASE PRINCIPAL: WikiCLI
+CLASE WikiCLI:
+    MÉTODO __init__(language=DEFAULT_LANGUAGE, timeout=DEFAULT_TIMEOUT, log_level="INFO"):
+        # 1. Inicializa logger interno
+        # 2. Llama a _configure_components(language, timeout, log_level)
+    
+    MÉTODO _configure_components(language, timeout, log_level):
+        # 1. Llama a _validate_inputs(language, timeout, log_level)
+        # 2. Inicializa:
+        #      - scraper: instancia de WikiScraper con language y timeout
+        #      - file_saver: instancia de FileSaver
+        # 3. Registra mensaje de depuración ("Componentes inicializados correctamente")
+        # 4. Captura y propaga errores de configuración (LanguageNotSupportedError, ValueError) como CLIError
+    
+    MÉTODO _validate_inputs(language, timeout, log_level):
+        # 1. Verifica que language tenga 2 letras y sea alfabético; si no, lanza ValueError
+        # 2. Verifica que timeout sea > 0; si no, lanza ValueError
+        # 3. Verifica que log_level esté en SUPPORTED_LOG_LEVELS; si no, lanza ValueError
+    
+    MÉTODO execute_test_command():
+        # 1. Registra inicio del comando de prueba
+        # 2. Usa click.secho para imprimir mensajes de prueba estilizados
+        # 3. Registra mensaje de depuración indicando éxito
+
+    MÉTODO execute_search_command(query, limit):
+        # 1. Registra inicio de búsqueda con query y límite
+        # 2. Llama a scraper.search_wikipedia(query, limit) para obtener resultados
+        # 3. Si hay resultados:
+        #       - Imprime cada resultado numerado con click.echo
+        #    Si no:
+        #       - Imprime advertencia y registra warning
+        # 4. Captura excepciones, registra error y finaliza con sys.exit en caso de fallo
+
+    MÉTODO execute_get_command(query, save):
+        # 1. Registra inicio del comando 'get' con la query
+        # 2. Con contexto 'with scraper as scraper_instance':
+        #       a. Llama a scraper.search_wikipedia(query, limit=1) para obtener el primer resultado
+        #       b. Si no hay resultados, imprime advertencia y retorna
+        #       c. Si hay resultado, obtiene el título de la página
+        #       d. Llama a scraper.get_page_raw_text(page_title) para obtener el texto de la página
+        #       e. Imprime el texto en consola con click.echo
+        #       f. Si se indicó 'save', intenta guardar el contenido usando file_saver.save()
+        #           - Registra éxito o captura errores al guardar y muestra mensaje de error
+        # 3. Captura excepciones generales y finaliza con sys.exit si ocurre algún error
+
+    MÉTODO execute_map_command(query, depth):
+        # 1. Registra inicio del comando 'map' con query y profundidad
+        # 2. Define función interna recursive_map(page_title, current_depth, max_depth, visited):
+        #       a. Si current_depth > max_depth o page ya visitada, retorna {}
+        #       b. Agrega page_title a visited
+        #       c. Registra depuración de mapeo
+        #       d. Llama a scraper.get_page_links(page_title, link_type="internal")
+        #       e. Para cada link, llama recursivamente a recursive_map() y construye un árbol de links
+        # 3. Llama a recursive_map(query, 1, depth, set()) y guarda el mapeo
+        # 4. Define función interna print_mapping(mapping, indent):
+        #       a. Itera recursivamente e imprime cada página y sus sublinks con indentación
+        # 5. Imprime el mapa de links usando print_mapping()
+        # 6. Registra mensaje de éxito al finalizar el mapeo
+
+# CONFIGURACIÓN DE LA CLI CON CLICK:
+
+@cli.group(options: language, timeout, verbose)
+  - Configura logging y crea WikiCLI (almacena en ctx.obj)
+
+@cli.command("test")
+  - Llama a: ctx.obj.execute_test_command()
+
+@cli.command("search")
+  - Argumento: query (string)
+  - Opción: --limit (default 5)
+  - Llama a: ctx.obj.execute_search_command(query, limit)
+
+@cli.command("get")
+  - Argumento: query (string)
+  - Opción: --save (flag booleano)
+  - Llama a: ctx.obj.execute_get_command(query, save)
+
+@cli.command("map")
+  - Argumento: query (string)
+  - Opción: --depth (default 1)
+  - Llama a: ctx.obj.execute_map_command(query, depth)
+
+main():
+  - Invoca cli() y maneja interrupciones y errores (KeyboardInterrupt, etc.)

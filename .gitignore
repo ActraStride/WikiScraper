@@ -110,7 +110,6 @@ dmypy.json
 
 # Custom ignores
 data/
-docs/
 logs/
 *.log
 *.tmp

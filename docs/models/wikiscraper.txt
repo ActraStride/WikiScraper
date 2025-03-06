@@ -1,0 +1,120 @@
+# Propósito: Módulo profesional para scraping de Wikipedia con manejo robusto de errores, reintentos inteligentes y buenas prácticas de web scraping
+
+# Características principales:
+#   - Gestión automática de sesiones HTTP con reintentos configurables
+#   - Validación estricta de entradas y parámetros
+#   - Detección de redirecciones y contenido no HTML
+#   - Parseo seguro con manejo correcto de encoding
+#   - Logging detallado y configuración flexible
+#   - Cumplimiento de robots.txt y políticas de uso
+
+# EXCEPCIONES PERSONALIZADAS:
+CLASE WikiScraperError(Exception):
+    # Excepción base para errores del módulo
+
+CLASE InvalidPageTitleError(WikiScraperError):
+    # Título de página inválido o vacío
+
+CLASE ParsingError(WikiScraperError):
+    # Error durante el parseo del contenido HTML
+
+CLASE LanguageNotSupportedError(WikiScraperError):
+    # Idioma no soportado
+
+CLASE NonHTMLContentError(WikiScraperError):
+    # Respuesta con contenido que no es HTML
+
+CLASE SearchError(WikiScraperError):
+    # Error general durante búsqueda en Wikipedia
+
+CLASE NoSearchResultsError(SearchError):
+    # Búsqueda que no devuelve resultados
+
+# CLASE PRINCIPAL: WikiScraper
+CLASE WikiScraper:
+    # Atributos:
+    #   - language: Código de idioma (ej: "es"), debe estar en VALID_LANGUAGES
+    #   - timeout: Tiempo máximo de espera para peticiones (default: 15 segundos)
+    #   - parser: Motor de parseo para BeautifulSoup (ej: "lxml")
+    #   - max_retries: Número máximo de reintentos para peticiones fallidas (default: 3)
+    #   - max_redirects: Límite de redirecciones permitidas (default: 3)
+    #   - base_url: URL base de Wikipedia según el idioma (ej: "https://es.wikipedia.org/")
+    #   - session: Sesión HTTP configurada con headers (User-Agent), reintentos y manejo de redirecciones
+
+    MÉTODO __init__(language, timeout, parser, max_retries, max_redirects):
+        # 1. Validar que 'language' está en el conjunto de idiomas válidos; de lo contrario, lanzar LanguageNotSupportedError
+        # 2. Configurar atributos (language, timeout, parser, max_redirects, base_url)
+        # 3. Crear una sesión HTTP:
+        #    - Actualizar headers con User-Agent personalizado
+        #    - Establecer max_redirects
+        # 4. Configurar estrategia de reintentos:
+        #    - Utilizar Retry con total=max_retries, backoff_factor, y lista de status (408, 429, 500, 502, 503, 504)
+        #    - Montar el adaptador HTTP (HTTPAdapter) en la sesión para "http://" y "https://"
+        # 5. Registrar inicialización en el logger
+
+    MÉTODO __repr__():
+        # Retornar una cadena que represente la configuración actual del scraper
+
+    MÉTODO _build_url(page_title):
+        # 1. Verificar que page_title es una cadena no vacía; si no, lanzar InvalidPageTitleError
+        # 2. Limpiar y URL-encode el título
+        # 3. Construir la URL completa uniendo base_url y "wiki/<título_codificado>"
+        # 4. Retornar la URL completa
+
+    MÉTODO get_page_soup(page_title) → BeautifulSoup:
+        # 1. Construir la URL usando _build_url
+        # 2. Realizar petición GET a la URL con el timeout configurado
+        # 3. Si hay redirecciones, registrar advertencia indicando el salto(s)
+        # 4. Validar que el header 'Content-Type' incluya "text/html"; si no, lanzar NonHTMLContentError
+        # 5. Llamar response.raise_for_status() para detectar errores HTTP
+        # 6. Registrar detalles de la respuesta (status, tiempo, tamaño)
+        # 7. Parsear el contenido HTML con BeautifulSoup usando el parser y encoding adecuados
+        # 8. Manejar excepciones (RequestException, FeatureNotFound) y lanzar los errores correspondientes
+        # 9. Retornar el objeto BeautifulSoup
+
+    MÉTODO search_wikipedia(query, limit=5) → List[str]:
+        # 1. Construir URL de la API de Wikipedia (base_url + "w/api.php")
+        # 2. Definir parámetros: acción "query", formato "json", lista "search", término de búsqueda, límite, etc.
+        # 3. Registrar inicio de la búsqueda y detalles de la URL/parámetros
+        # 4. Realizar petición GET a la API con timeout
+        # 5. Validar la respuesta JSON:
+        #    - Si hay clave "error", registrar y lanzar SearchError
+        #    - Si la estructura no es la esperada, lanzar NoSearchResultsError
+        # 6. Extraer y retornar una lista de títulos de páginas obtenidos
+
+    MÉTODO get_page_soup_with_search(query) → BeautifulSoup:
+        # 1. Usar search_wikipedia para obtener resultados con el término de búsqueda
+        # 2. Seleccionar el primer resultado y registrar la acción
+        # 3. Llamar a get_page_soup usando el título obtenido
+        # 4. Retornar el objeto BeautifulSoup del contenido de la página
+
+    MÉTODO get_page_raw_text(page_title) → str:
+        # 1. Construir URL de la API de Wikipedia (base_url + "w/api.php")
+        # 2. Definir parámetros para obtener el extracto en texto plano (action "query", prop "extracts", explaintext, etc.)
+        # 3. Realizar petición GET y validar la respuesta JSON:
+        #    - Verificar errores o estructura inesperada; si se presentan, lanzar SearchError o NoSearchResultsError
+        # 4. Extraer y retornar el texto plano del artículo
+
+    MÉTODO get_page_links(page_title, link_type, limit, namespace) → List[str]:
+        # 1. Validar que link_type sea uno de: "internal", "external", "linkshere", "interwiki"; si no, lanzar ValueError
+        # 2. Según link_type, configurar:
+        #    - El módulo de API a usar (ej: "links", "extlinks", etc.)
+        #    - Prefijo de parámetro (ej: "pl", "el", "lh", "iw")
+        #    - Clave en la respuesta (ej: "links", "extlinks", etc.)
+        # 3. Construir URL de la API y definir parámetros base (incluyendo límite y, opcionalmente, namespace)
+        # 4. Inicializar lista para almacenar resultados y variable para paginación
+        # 5. Mientras existan más resultados (paginación):
+        #    - Combinar parámetros base y parámetros de continuación
+        #    - Realizar petición GET a la API
+        #    - Validar la respuesta JSON; si hay error o estructura inesperada, lanzar SearchError
+        #    - Extraer los enlaces y agregarlos a la lista de resultados (diferenciando entre tipos de enlace)
+        #    - Actualizar parámetros de paginación; si no hay más, salir del bucle
+        # 6. Registrar y retornar la lista de enlaces obtenidos
+
+    MÉTODO __enter__():
+        # Permite el uso de "with WikiScraper() as scraper:"
+        # Retornar self
+
+    MÉTODO __exit__(exc_type, exc_val, exc_tb):
+        # Cerrar la sesión HTTP
+        # Registrar que la sesión se cerró correctamente

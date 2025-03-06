@@ -13,7 +13,7 @@ from typing import Optional, Final
 from urllib.parse import quote
 
 # Constantes
-DEFAULT_OUTPUT_DIR: Final[str] = "data/extracted"
+DEFAULT_OUTPUT_DIR: Final[str] = "data"
 VALID_ENCODINGS: Final[tuple] = ('utf-8', 'latin-1', 'iso-8859-1')
 MAX_FILENAME_LENGTH: Final[int] = 255
 SAFE_FILENAME_PATTERN: Final[str] = r"[^A-Za-z0-9_\-\.]"

@@ -1,0 +1,29 @@
+# Propósito: Configuración robusta de logging con rotación y seguridad
+
+# CONSTANTES:
+#   - LOG_DIR_NAME, LOG_FILE_NAME, FORMATOS, TAMAÑO MÁXIMO (10MB), BACKUPS (5)
+#   - Zona horaria UTC en logs
+
+CLASE LoggingSetupError(Exception):
+    # Excepción personalizada para fallos en configuración
+
+FUNCIÓN get_log_dir(project_root):
+    # 1. Resolver ruta del proyecto (si no se provee)
+    # 2. Crear directorio 'logs' con parents=True y exist_ok=True
+    # 3. MANEJO DE ERRORES: Permisos/OSError → lanza LoggingSetupError
+
+FUNCIÓN get_logging_config(log_file_path, log_level) → dict:
+    # 1. Estructura de configuración para dictConfig:
+    #    - Formatter: timestamp UTC + nivel + módulo/función/línea
+    #    - Handlers:
+    #        * RotatingFileHandler: append, 10MB rotación, 5 backups, encoding UTF-8
+    #        * StreamHandler: salida consola (solo si verbose)
+    #    - Loggers:
+    #        * Raíz: nivel especificado
+    #        * urllib3: nivel WARNING para reducir ruido
+
+FUNCIÓN setup_logging(log_level, project_root):
+    # 1. Obtener ruta de logs (get_log_dir)
+    # 2. Aplicar configuración con logging.config.dictConfig
+    # 3. Registrar éxito/errores en logger
+    # 4. MANEJO DE ERRORES: Excepción general → LoggingSetupError

@@ -1,0 +1,79 @@
+# Propósito: Almacenamiento seguro de contenido scrapeado con manejo de errores,
+# control de encoding y gestión automática de directorios.
+
+# CONSTANTES:
+#   DEFAULT_OUTPUT_DIR = "data"
+#   VALID_ENCODINGS = ('utf-8', 'latin-1', 'iso-8859-1')
+#   MAX_FILENAME_LENGTH = 255
+#   SAFE_FILENAME_PATTERN = r"[^A-Za-z0-9_\-\.]"
+
+# EXCEPCIONES PERSONALIZADAS:
+CLASE StorageError(Exception):
+    # Excepción base para errores de almacenamiento
+
+CLASE DirectoryCreationError(StorageError):
+    # Error al crear directorios
+
+CLASE FileWriteError(StorageError):
+    # Error al escribir el archivo
+
+CLASE InvalidFilenameError(StorageError):
+    # Nombre de archivo inválido o inseguro
+
+# CLASE PRINCIPAL: FileSaver
+CLASE FileSaver:
+    # Atributos:
+    #   - output_dir: Directorio base para almacenamiento (Path)
+    #   - encoding: Codificación de archivos (string, por ejemplo 'utf-8')
+    #   - timestamp_format: Formato para timestamps en nombres de archivo
+
+    MÉTODO __init__(output_dir=DEFAULT_OUTPUT_DIR, encoding='utf-8', timestamp_format="%Y%m%d_%H%M%S"):
+        # 1. Asignar output_dir y timestamp_format
+        # 2. Validar que 'encoding' está en VALID_ENCODINGS (convertir a minúsculas); si no, lanzar ValueError
+        # 3. Guardar encoding
+        # 4. Llamar a _setup_storage() para crear y verificar el directorio de salida
+
+    MÉTODO _setup_storage():
+        # 1. Intentar crear output_dir con parents=True y exist_ok=True
+        # 2. Si ocurre PermissionError u OSError, registrar el error y lanzar DirectoryCreationError
+
+    MÉTODO sanitize_filename(filename: str) → str:
+        # 1. Remover caracteres inseguros usando SAFE_FILENAME_PATTERN (reemplazar con guiones bajos)
+        # 2. Limitar la longitud del nombre a MAX_FILENAME_LENGTH y quitar espacios
+        # 3. Si el resultado está vacío, lanzar InvalidFilenameError
+        # 4. Retornar el nombre sanitizado
+
+    MÉTODO generate_filename(title: Optional[str] = None) → str:
+        # 1. Obtener timestamp actual formateado según timestamp_format
+        # 2. Si se provee title:
+        #      a. URL-encode el título
+        #      b. Sanitizar el título usando sanitize_filename()
+        #      c. Formar el nombre: "<timestamp>_<safe_title>.txt"
+        #    Si no se provee title o falla sanitización:
+        #      a. Usar nombre: "<timestamp>_wikipedia_content.txt"
+        # 3. Retornar el nombre de archivo generado
+
+    MÉTODO save(content: str, title: Optional[str] = None) → Path:
+        # 1. Generar el nombre de archivo usando generate_filename(title)
+        # 2. Construir la ruta completa (output_dir + filename)
+        # 3. Intentar abrir el archivo en modo escritura ("w") con la codificación configurada
+        # 4. Escribir el contenido en el archivo (usando error handling para encoding)
+        # 5. Registrar que el archivo se guardó exitosamente
+        # 6. Llamar a _post_save_validation(file_path, content) para verificar integridad
+        # 7. Retornar la ruta del archivo
+        # 8. En caso de IOError o UnicodeEncodeError, registrar y lanzar FileWriteError
+
+    MÉTODO _post_save_validation(file_path: Path, original_content: str):
+        # 1. Abrir el archivo en modo lectura con la codificación configurada
+        # 2. Comparar el contenido leído con original_content
+        # 3. Si no coinciden, registrar advertencia sobre posible corrupción de datos
+
+    MÉTODO __enter__():
+        # Permite usar el FileSaver en contexto "with"
+        # Retornar self
+
+    MÉTODO __exit__(exc_type, exc_val, exc_tb):
+        # Manejar limpieza de recursos si es necesario (actualmente no hace nada)
+
+    MÉTODO __repr__() → str:
+        # Retornar una cadena que muestre la configuración actual (output_dir, encoding, timestamp_format)

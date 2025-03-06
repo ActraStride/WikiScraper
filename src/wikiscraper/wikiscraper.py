@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Constantes
 USER_AGENT: Final[str] = "WikiScraperBot/3.0 (+https://github.com/tu_usuario/tu_repositorio)"
-VALID_LANGUAGES: Final[Set[str]] = {"en", "es", "fr", "de", "it", "pt", "ja", "zh", "ru"}
+VALID_LANGUAGES: Final[Set[str]] = {"en", "ceb", "es", "fr", "de", "it", "pt", "ja", "zh", "ru", "ko", "nl", "ar", "simple"}
 DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_MAX_REDIRECTS: Final[int] = 3
 DEFAULT_TIMEOUT: Final[int] = 15

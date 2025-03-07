@@ -1,18 +1,23 @@
-# app/utils/setup_logging.py
-
 """
-Módulo de configuración avanzada de logging para aplicaciones Python.
+Module Name: setup_logging
 
-Provee:
-- Configuración centralizada de logging
-- Rotación de archivos de log
-- Configuración segura de directorios
-- Manejo robusto de errores
-- Formato consistente con zona horaria UTC
+Advanced logging configuration for Python applications.
+
+This module provides centralized logging configuration, including:
+- Log file rotation
+- Secure directory setup
+- Robust error handling
+- Consistent UTC timezone formatting
+
+Example:
+    >>> from src.utils.setup_logging import setup_logging
+    >>> setup_logging()
 """
+
 import logging.config
 import time
 import sys
+
 from pathlib import Path
 from typing import Final
 from logging.handlers import RotatingFileHandler
@@ -35,20 +40,20 @@ class LoggingSetupError(Exception):
 
 def get_log_dir(project_root: Path = None) -> Path:
     """
-    Determina y crea el directorio de logs de manera segura.
-    
+    Safely determines and creates the log directory.
+
     Args:
-        project_root: Ruta raíz opcional del proyecto
-        
+        project_root (Path, optional): Root path of the project. Defaults to None.
+
     Returns:
-        Path: Ruta absoluta al directorio de logs
-        
+        Path: Absolute path to the log directory.
+
     Raises:
-        LoggingSetupError: Si no se puede crear el directorio
+        LoggingSetupError: If the directory cannot be created.
     """
     try:
         if project_root is None:
-            # Asume que este archivo está en proyecto_root/app/utils
+            # Assumes this file is located in proyecto_root/app/utils
             project_root = Path(__file__).resolve().parent.parent.parent
             
         log_dir = project_root / LOG_DIR_NAME
@@ -56,19 +61,19 @@ def get_log_dir(project_root: Path = None) -> Path:
         return log_dir
     except (PermissionError, FileExistsError, OSError) as e:
         raise LoggingSetupError(
-            f"No se pudo crear el directorio de logs: {e}"
+            f"Failed to create log directory: {e}"
         ) from e
 
 def get_logging_config(log_file_path: Path, log_level: str) -> dict:
     """
-    Genera configuración de logging dinámica con type hints y validación.
-    
+    Generates dynamic logging configuration with type hints and validation.
+
     Args:
-        log_file_path: Ruta completa al archivo de log
-        log_level: Nivel de descripción en el log
-        
+        log_file_path (Path): Full path to the log file.
+        log_level (str): Logging level (e.g., "DEBUG", "INFO", "WARNING").
+
     Returns:
-        dict: Configuración de logging compatible con dictConfig
+        dict: Logging configuration compatible with `dictConfig`.
     """
     return {
         "version": 1,
@@ -89,7 +94,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
                 "encoding": LOG_ENCODING,
                 "maxBytes": LOG_MAX_BYTES,
                 "backupCount": LOG_BACKUP_COUNT,
-                "delay": True,  # Retrasa la apertura del archivo hasta el primer uso
+                "delay": True,  # Delays file opening until first use
             },
             "console": {
                 "class": "logging.StreamHandler",
@@ -99,13 +104,13 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
             },
         },
         "loggers": {
-            # Logger raíz configura todos los módulos
+            # Root logger configures all modules
             "": {
                 "handlers": ["rotating_file"],
                 "level": log_level,
                 "propagate": False,
             },
-            # Configuración específica para dependencias ruidosas
+            # Specific configuration for noisy dependencies
             "urllib3": {
                 "level": "WARNING",
                 "propagate": False,
@@ -115,39 +120,34 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
 
 def setup_logging(log_level: str, project_root: Path = None) -> None:
     """
-    Configura el sistema de logging de la aplicación.
-    
+    Configures the application's logging system.
+
     Args:
-        project_root: Ruta al directorio raíz del proyecto (default: None)
-        log_level: Nivel de descripción en el log
-    
+        log_level (str): Logging level (e.g., "DEBUG", "INFO", "WARNING").
+        project_root (Path, optional): Root directory of the project. Defaults to None.
+
     Raises:
-        LoggingSetupError: Si la configuración falla
+        LoggingSetupError: If logging configuration fails.
     """
     try:
-        # Obtener directorio de logs
+        # Get log directory
         log_dir = get_log_dir(project_root)
         log_file = log_dir / LOG_FILE_NAME
         
-        # Configurar logging
+        # Configure logging
         config = get_logging_config(log_file, log_level)
         logging.config.dictConfig(config)
         
-        # Configurar UTC para tiempos de registro
-        logging.Formatter.converter = time.localtime  # Si quieres la hora local
-
+        # Set UTC for log timestamps (or local time if preferred)
+        logging.Formatter.converter = time.localtime  # Use local time
         
-        # Registrar éxito
+        # Log success
         logger = logging.getLogger(__name__)
         logger.info(
-            "Logging configurado correctamente. Archivo: %s", log_file
+            "Logging configured successfully. File: %s", log_file
         )
         
     except Exception as e:
         raise LoggingSetupError(
-            f"Error configurando el sistema de logging: {e}"
+            f"Error setting up logging system: {e}"
         ) from e
-
-# Uso recomendado:
-# if __name__ == "__main__":
-#     setup_logging()

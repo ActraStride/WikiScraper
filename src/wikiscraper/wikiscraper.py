@@ -1,25 +1,28 @@
 """
-Módulo profesional para scraping de Wikipedia con manejo robusto de errores, reintentos inteligentes
-y cumplimiento de buenas prácticas de web scraping.
+Module Name: wikiscraper
 
-Características principales:
-- Gestión automática de sesiones HTTP con reintentos configurables
-- Validación estricta de entradas y parámetros
-- Detección de redirecciones y contenido no HTML
-- Parseo seguro con manejo correcto de encoding
-- Logging detallado y configuración flexible
-- Cumplimiento de robots.txt y políticas de uso
+Professional Wikipedia scraping module with robust error handling, intelligent retries, and adherence to web scraping best practices.
 
-Uso básico:
->>> from wiki_scraper import WikiScraper
->>> with WikiScraper(language="es") as scraper:
-...     soup = scraper.get_page_soup("Python")
-...     print(soup.title.string)
+This module provides:
+- Automatic HTTP session management with configurable retries
+- Strict input and parameter validation
+- Redirection and non-HTML content detection
+- Safe parsing with proper encoding handling
+- Detailed logging and flexible configuration
+- Compliance with robots.txt and usage policies
+
+Basic Usage:
+    >>> from wiki_scraper import WikiScraper
+    >>> with WikiScraper(language="es") as scraper:
+    ...     soup = scraper.get_page_soup("Python")
+    ...     print(soup.title.string)
 """
 
+
 import logging
-from typing import Final, Optional, Set, List
 import requests
+
+from typing import Final, Optional, Set, List
 from bs4 import BeautifulSoup, FeatureNotFound
 from urllib.parse import quote, urljoin
 from requests.adapters import HTTPAdapter

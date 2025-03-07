@@ -1,0 +1,400 @@
+# Texto introductorio
+
+Este proyecto implementa un sistema modular para scraping de Wikipedia con estándares profesionales. Está compuesto por tres componentes principales: un scraper core (`WikiScraper`) que gestiona conexiones HTTP y extracción de datos, un sistema de almacenamiento (`FileSaver`) para guardar el contenido obtenido, y una interfaz de línea de comandos (`WikiCLI`) que proporciona una experiencia de usuario intuitiva. El sistema está diseñado con robustez en mente, implementando manejo de excepciones específicas, reintentos inteligentes, respeto por las políticas de uso de Wikipedia, y logging detallado. La arquitectura sigue principios SOLID, separando claramente las responsabilidades y permitiendo la extensión de funcionalidades sin modificar código existente.
+
+# Diagrama de conexión de clases
+
+```
+                      +---------------+
+                      |               |
+                +---->|  WikiScraper  |
+                |     | (wikiscraper) |
+                |     |               |
+                |     +---------------+
+                |
++-------------+ |     +---------------+
+|             | |     |               |
+|   WikiCLI   |------>|   FileSaver   |
+|  (cli.py)   | |     |   (storage)   |
+|             | |     |               |
++-------------+ |     +---------------+
+                |
+                |     +---------------+
+                |     |               |
+                +---->| setup_logging |
+                      |    (utils)    |
+                      |               |
+                      +---------------+
+```
+
+
+# CODIGO
+
+
+# Propósito: Configuración robusta de logging con rotación y seguridad
+
+# CONSTANTES:
+#   - LOG_DIR_NAME, LOG_FILE_NAME, FORMATOS, TAMAÑO MÁXIMO (10MB), BACKUPS (5)
+#   - Zona horaria UTC en logs
+
+CLASE LoggingSetupError(Exception):
+    # Excepción personalizada para fallos en configuración
+
+FUNCIÓN get_log_dir(project_root):
+    # 1. Resolver ruta del proyecto (si no se provee)
+    # 2. Crear directorio 'logs' con parents=True y exist_ok=True
+    # 3. MANEJO DE ERRORES: Permisos/OSError → lanza LoggingSetupError
+
+FUNCIÓN get_logging_config(log_file_path, log_level) → dict:
+    # 1. Estructura de configuración para dictConfig:
+    #    - Formatter: timestamp UTC + nivel + módulo/función/línea
+    #    - Handlers:
+    #        * RotatingFileHandler: append, 10MB rotación, 5 backups, encoding UTF-8
+    #        * StreamHandler: salida consola (solo si verbose)
+    #    - Loggers:
+    #        * Raíz: nivel especificado
+    #        * urllib3: nivel WARNING para reducir ruido
+
+FUNCIÓN setup_logging(log_level, project_root):
+    # 1. Obtener ruta de logs (get_log_dir)
+    # 2. Aplicar configuración con logging.config.dictConfig
+    # 3. Registrar éxito/errores en logger
+    # 4. MANEJO DE ERRORES: Excepción general → LoggingSetupError
+
+
+--------------------------------------------------------------------------------------------
+
+# Propósito: Módulo profesional para scraping de Wikipedia con manejo robusto de errores, reintentos inteligentes y buenas prácticas de web scraping
+
+# Características principales:
+#   - Gestión automática de sesiones HTTP con reintentos configurables
+#   - Validación estricta de entradas y parámetros
+#   - Detección de redirecciones y contenido no HTML
+#   - Parseo seguro con manejo correcto de encoding
+#   - Logging detallado y configuración flexible
+#   - Cumplimiento de robots.txt y políticas de uso
+
+# EXCEPCIONES PERSONALIZADAS:
+CLASE WikiScraperError(Exception):
+    # Excepción base para errores del módulo
+
+CLASE InvalidPageTitleError(WikiScraperError):
+    # Título de página inválido o vacío
+
+CLASE ParsingError(WikiScraperError):
+    # Error durante el parseo del contenido HTML
+
+CLASE LanguageNotSupportedError(WikiScraperError):
+    # Idioma no soportado
+
+CLASE NonHTMLContentError(WikiScraperError):
+    # Respuesta con contenido que no es HTML
+
+CLASE SearchError(WikiScraperError):
+    # Error general durante búsqueda en Wikipedia
+
+CLASE NoSearchResultsError(SearchError):
+    # Búsqueda que no devuelve resultados
+
+# CLASE PRINCIPAL: WikiScraper
+CLASE WikiScraper:
+    # Atributos:
+    #   - language: Código de idioma (ej: "es"), debe estar en VALID_LANGUAGES
+    #   - timeout: Tiempo máximo de espera para peticiones (default: 15 segundos)
+    #   - parser: Motor de parseo para BeautifulSoup (ej: "lxml")
+    #   - max_retries: Número máximo de reintentos para peticiones fallidas (default: 3)
+    #   - max_redirects: Límite de redirecciones permitidas (default: 3)
+    #   - base_url: URL base de Wikipedia según el idioma (ej: "https://es.wikipedia.org/")
+    #   - session: Sesión HTTP configurada con headers (User-Agent), reintentos y manejo de redirecciones
+
+    MÉTODO __init__(language, timeout, parser, max_retries, max_redirects):
+        # 1. Validar que 'language' está en el conjunto de idiomas válidos; de lo contrario, lanzar LanguageNotSupportedError
+        # 2. Configurar atributos (language, timeout, parser, max_redirects, base_url)
+        # 3. Crear una sesión HTTP:
+        #    - Actualizar headers con User-Agent personalizado
+        #    - Establecer max_redirects
+        # 4. Configurar estrategia de reintentos:
+        #    - Utilizar Retry con total=max_retries, backoff_factor, y lista de status (408, 429, 500, 502, 503, 504)
+        #    - Montar el adaptador HTTP (HTTPAdapter) en la sesión para "http://" y "https://"
+        # 5. Registrar inicialización en el logger
+
+    MÉTODO __repr__():
+        # Retornar una cadena que represente la configuración actual del scraper
+
+    MÉTODO _build_url(page_title):
+        # 1. Verificar que page_title es una cadena no vacía; si no, lanzar InvalidPageTitleError
+        # 2. Limpiar y URL-encode el título
+        # 3. Construir la URL completa uniendo base_url y "wiki/<título_codificado>"
+        # 4. Retornar la URL completa
+
+    MÉTODO get_page_soup(page_title) → BeautifulSoup:
+        # 1. Construir la URL usando _build_url
+        # 2. Realizar petición GET a la URL con el timeout configurado
+        # 3. Si hay redirecciones, registrar advertencia indicando el salto(s)
+        # 4. Validar que el header 'Content-Type' incluya "text/html"; si no, lanzar NonHTMLContentError
+        # 5. Llamar response.raise_for_status() para detectar errores HTTP
+        # 6. Registrar detalles de la respuesta (status, tiempo, tamaño)
+        # 7. Parsear el contenido HTML con BeautifulSoup usando el parser y encoding adecuados
+        # 8. Manejar excepciones (RequestException, FeatureNotFound) y lanzar los errores correspondientes
+        # 9. Retornar el objeto BeautifulSoup
+
+    MÉTODO search_wikipedia(query, limit=5) → List[str]:
+        # 1. Construir URL de la API de Wikipedia (base_url + "w/api.php")
+        # 2. Definir parámetros: acción "query", formato "json", lista "search", término de búsqueda, límite, etc.
+        # 3. Registrar inicio de la búsqueda y detalles de la URL/parámetros
+        # 4. Realizar petición GET a la API con timeout
+        # 5. Validar la respuesta JSON:
+        #    - Si hay clave "error", registrar y lanzar SearchError
+        #    - Si la estructura no es la esperada, lanzar NoSearchResultsError
+        # 6. Extraer y retornar una lista de títulos de páginas obtenidos
+
+    MÉTODO get_page_soup_with_search(query) → BeautifulSoup:
+        # 1. Usar search_wikipedia para obtener resultados con el término de búsqueda
+        # 2. Seleccionar el primer resultado y registrar la acción
+        # 3. Llamar a get_page_soup usando el título obtenido
+        # 4. Retornar el objeto BeautifulSoup del contenido de la página
+
+    MÉTODO get_page_raw_text(page_title) → str:
+        # 1. Construir URL de la API de Wikipedia (base_url + "w/api.php")
+        # 2. Definir parámetros para obtener el extracto en texto plano (action "query", prop "extracts", explaintext, etc.)
+        # 3. Realizar petición GET y validar la respuesta JSON:
+        #    - Verificar errores o estructura inesperada; si se presentan, lanzar SearchError o NoSearchResultsError
+        # 4. Extraer y retornar el texto plano del artículo
+
+    MÉTODO get_page_links(page_title, link_type, limit, namespace) → List[str]:
+        # 1. Validar que link_type sea uno de: "internal", "external", "linkshere", "interwiki"; si no, lanzar ValueError
+        # 2. Según link_type, configurar:
+        #    - El módulo de API a usar (ej: "links", "extlinks", etc.)
+        #    - Prefijo de parámetro (ej: "pl", "el", "lh", "iw")
+        #    - Clave en la respuesta (ej: "links", "extlinks", etc.)
+        # 3. Construir URL de la API y definir parámetros base (incluyendo límite y, opcionalmente, namespace)
+        # 4. Inicializar lista para almacenar resultados y variable para paginación
+        # 5. Mientras existan más resultados (paginación):
+        #    - Combinar parámetros base y parámetros de continuación
+        #    - Realizar petición GET a la API
+        #    - Validar la respuesta JSON; si hay error o estructura inesperada, lanzar SearchError
+        #    - Extraer los enlaces y agregarlos a la lista de resultados (diferenciando entre tipos de enlace)
+        #    - Actualizar parámetros de paginación; si no hay más, salir del bucle
+        # 6. Registrar y retornar la lista de enlaces obtenidos
+
+    MÉTODO __enter__():
+        # Permite el uso de "with WikiScraper() as scraper:"
+        # Retornar self
+
+    MÉTODO __exit__(exc_type, exc_val, exc_tb):
+        # Cerrar la sesión HTTP
+        # Registrar que la sesión se cerró correctamente
+
+
+
+--------------------------------------------------------------------------------------------
+
+
+# Propósito: Almacenamiento seguro de contenido scrapeado con manejo de errores,
+# control de encoding y gestión automática de directorios.
+
+# CONSTANTES:
+#   DEFAULT_OUTPUT_DIR = "data"
+#   VALID_ENCODINGS = ('utf-8', 'latin-1', 'iso-8859-1')
+#   MAX_FILENAME_LENGTH = 255
+#   SAFE_FILENAME_PATTERN = r"[^A-Za-z0-9_\-\.]"
+
+# EXCEPCIONES PERSONALIZADAS:
+CLASE StorageError(Exception):
+    # Excepción base para errores de almacenamiento
+
+CLASE DirectoryCreationError(StorageError):
+    # Error al crear directorios
+
+CLASE FileWriteError(StorageError):
+    # Error al escribir el archivo
+
+CLASE InvalidFilenameError(StorageError):
+    # Nombre de archivo inválido o inseguro
+
+# CLASE PRINCIPAL: FileSaver
+CLASE FileSaver:
+    # Atributos:
+    #   - output_dir: Directorio base para almacenamiento (Path)
+    #   - encoding: Codificación de archivos (string, por ejemplo 'utf-8')
+    #   - timestamp_format: Formato para timestamps en nombres de archivo
+
+    MÉTODO __init__(output_dir=DEFAULT_OUTPUT_DIR, encoding='utf-8', timestamp_format="%Y%m%d_%H%M%S"):
+        # 1. Asignar output_dir y timestamp_format
+        # 2. Validar que 'encoding' está en VALID_ENCODINGS (convertir a minúsculas); si no, lanzar ValueError
+        # 3. Guardar encoding
+        # 4. Llamar a _setup_storage() para crear y verificar el directorio de salida
+
+    MÉTODO _setup_storage():
+        # 1. Intentar crear output_dir con parents=True y exist_ok=True
+        # 2. Si ocurre PermissionError u OSError, registrar el error y lanzar DirectoryCreationError
+
+    MÉTODO sanitize_filename(filename: str) → str:
+        # 1. Remover caracteres inseguros usando SAFE_FILENAME_PATTERN (reemplazar con guiones bajos)
+        # 2. Limitar la longitud del nombre a MAX_FILENAME_LENGTH y quitar espacios
+        # 3. Si el resultado está vacío, lanzar InvalidFilenameError
+        # 4. Retornar el nombre sanitizado
+
+    MÉTODO generate_filename(title: Optional[str] = None) → str:
+        # 1. Obtener timestamp actual formateado según timestamp_format
+        # 2. Si se provee title:
+        #      a. URL-encode el título
+        #      b. Sanitizar el título usando sanitize_filename()
+        #      c. Formar el nombre: "<timestamp>_<safe_title>.txt"
+        #    Si no se provee title o falla sanitización:
+        #      a. Usar nombre: "<timestamp>_wikipedia_content.txt"
+        # 3. Retornar el nombre de archivo generado
+
+    MÉTODO save(content: str, title: Optional[str] = None) → Path:
+        # 1. Generar el nombre de archivo usando generate_filename(title)
+        # 2. Construir la ruta completa (output_dir + filename)
+        # 3. Intentar abrir el archivo en modo escritura ("w") con la codificación configurada
+        # 4. Escribir el contenido en el archivo (usando error handling para encoding)
+        # 5. Registrar que el archivo se guardó exitosamente
+        # 6. Llamar a _post_save_validation(file_path, content) para verificar integridad
+        # 7. Retornar la ruta del archivo
+        # 8. En caso de IOError o UnicodeEncodeError, registrar y lanzar FileWriteError
+
+    MÉTODO _post_save_validation(file_path: Path, original_content: str):
+        # 1. Abrir el archivo en modo lectura con la codificación configurada
+        # 2. Comparar el contenido leído con original_content
+        # 3. Si no coinciden, registrar advertencia sobre posible corrupción de datos
+
+    MÉTODO __enter__():
+        # Permite usar el FileSaver en contexto "with"
+        # Retornar self
+
+    MÉTODO __exit__(exc_type, exc_val, exc_tb):
+        # Manejar limpieza de recursos si es necesario (actualmente no hace nada)
+
+    MÉTODO __repr__() → str:
+        # Retornar una cadena que muestre la configuración actual (output_dir, encoding, timestamp_format)
+
+
+--------------------------------------------------------------------------------------------
+
+
+# Propósito: Interfaz de línea de comandos (CLI) para el scraper de Wikipedia
+# Características:
+#   - Configuración centralizada de opciones (idioma, timeout, nivel de log)
+#   - Manejo robusto de errores con excepciones específicas (CLIError, LoggingSetupError, etc.)
+#   - Logging estructurado para seguimiento de operaciones
+#   - Sistema de comandos extensible usando click
+
+# CONSTANTES:
+#   DEFAULT_LANGUAGE = "es"
+#   DEFAULT_TIMEOUT = 15
+#   SUPPORTED_LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"]
+#   DEFAULT_OUTPUT_DIR = "./output_files"
+
+# EXCEPCIÓN PERSONALIZADA:
+CLASE CLIError(Exception):
+    # Excepción base para errores de la CLI
+
+# CLASE PRINCIPAL: WikiCLI
+CLASE WikiCLI:
+    MÉTODO __init__(language=DEFAULT_LANGUAGE, timeout=DEFAULT_TIMEOUT, log_level="INFO"):
+        # 1. Inicializa logger interno
+        # 2. Llama a _configure_components(language, timeout, log_level)
+    
+    MÉTODO _configure_components(language, timeout, log_level):
+        # 1. Llama a _validate_inputs(language, timeout, log_level)
+        # 2. Inicializa:
+        #      - scraper: instancia de WikiScraper con language y timeout
+        #      - file_saver: instancia de FileSaver
+        # 3. Registra mensaje de depuración ("Componentes inicializados correctamente")
+        # 4. Captura y propaga errores de configuración (LanguageNotSupportedError, ValueError) como CLIError
+    
+    MÉTODO _validate_inputs(language, timeout, log_level):
+        # 1. Verifica que language tenga 2 letras y sea alfabético; si no, lanza ValueError
+        # 2. Verifica que timeout sea > 0; si no, lanza ValueError
+        # 3. Verifica que log_level esté en SUPPORTED_LOG_LEVELS; si no, lanza ValueError
+    
+    MÉTODO execute_test_command():
+        # 1. Registra inicio del comando de prueba
+        # 2. Usa click.secho para imprimir mensajes de prueba estilizados
+        # 3. Registra mensaje de depuración indicando éxito
+
+    MÉTODO execute_search_command(query, limit):
+        # 1. Registra inicio de búsqueda con query y límite
+        # 2. Llama a scraper.search_wikipedia(query, limit) para obtener resultados
+        # 3. Si hay resultados:
+        #       - Imprime cada resultado numerado con click.echo
+        #    Si no:
+        #       - Imprime advertencia y registra warning
+        # 4. Captura excepciones, registra error y finaliza con sys.exit en caso de fallo
+
+    MÉTODO execute_get_command(query, save):
+        # 1. Registra inicio del comando 'get' con la query
+        # 2. Con contexto 'with scraper as scraper_instance':
+        #       a. Llama a scraper.search_wikipedia(query, limit=1) para obtener el primer resultado
+        #       b. Si no hay resultados, imprime advertencia y retorna
+        #       c. Si hay resultado, obtiene el título de la página
+        #       d. Llama a scraper.get_page_raw_text(page_title) para obtener el texto de la página
+        #       e. Imprime el texto en consola con click.echo
+        #       f. Si se indicó 'save', intenta guardar el contenido usando file_saver.save()
+        #           - Registra éxito o captura errores al guardar y muestra mensaje de error
+        # 3. Captura excepciones generales y finaliza con sys.exit si ocurre algún error
+
+    MÉTODO execute_map_command(query, depth):
+        # 1. Registra inicio del comando 'map' con query y profundidad
+        # 2. Define función interna recursive_map(page_title, current_depth, max_depth, visited):
+        #       a. Si current_depth > max_depth o page ya visitada, retorna {}
+        #       b. Agrega page_title a visited
+        #       c. Registra depuración de mapeo
+        #       d. Llama a scraper.get_page_links(page_title, link_type="internal")
+        #       e. Para cada link, llama recursivamente a recursive_map() y construye un árbol de links
+        # 3. Llama a recursive_map(query, 1, depth, set()) y guarda el mapeo
+        # 4. Define función interna print_mapping(mapping, indent):
+        #       a. Itera recursivamente e imprime cada página y sus sublinks con indentación
+        # 5. Imprime el mapa de links usando print_mapping()
+        # 6. Registra mensaje de éxito al finalizar el mapeo
+
+# CONFIGURACIÓN DE LA CLI CON CLICK:
+
+@cli.group(options: language, timeout, verbose)
+  - Configura logging y crea WikiCLI (almacena en ctx.obj)
+
+@cli.command("test")
+  - Llama a: ctx.obj.execute_test_command()
+
+@cli.command("search")
+  - Argumento: query (string)
+  - Opción: --limit (default 5)
+  - Llama a: ctx.obj.execute_search_command(query, limit)
+
+@cli.command("get")
+  - Argumento: query (string)
+  - Opción: --save (flag booleano)
+  - Llama a: ctx.obj.execute_get_command(query, save)
+
+@cli.command("map")
+  - Argumento: query (string)
+  - Opción: --depth (default 1)
+  - Llama a: ctx.obj.execute_map_command(query, depth)
+
+main():
+  - Invoca cli() y maneja interrupciones y errores (KeyboardInterrupt, etc.)
+
+
+# Casos de uso
+
+El sistema proporciona una interfaz de línea de comandos flexible con varios comandos útiles:
+
+- **Búsqueda con límite personalizado**: 
+  ```
+  wiki -l en search "Donald Trump" --limit 8
+  ```
+  Busca y devuelve los 8 resultados más populares de la Wikipedia en inglés relacionados con "Donald Trump".
+
+- **Obtención y almacenamiento de artículos**:
+  ```
+  wiki -l es get "Claudia Sheinbaum" --save
+  ```
+  Busca la coincidencia más popular para "Claudia Sheinbaum" en la Wikipedia en español, muestra el contenido en la terminal y guarda automáticamente el texto en un archivo con formato de nombre que incluye timestamp.
+
+- **Mapeo de enlaces con profundidad configurable**:
+  ```
+  wiki -l fr map "Emmanuel Macron" --depth 2
+  ```
+  Busca la coincidencia más popular para "Emmanuel Macron" en la Wikipedia francesa y genera un mapa jerárquico de sus enlaces internos, explorando hasta dos niveles de profundidad.

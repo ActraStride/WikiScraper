@@ -1,12 +1,22 @@
-# src/storage/file_saver.py
-
 """
-Módulo profesional para almacenamiento seguro de contenido scrapeado con manejo de errores,
-control de encoding y gestión automática de directorios.
+Module Name: file_saver
+
+Professional module for secure storage of scraped content. Provides functionality for:
+- Safe file and directory handling
+- Encoding control and filename validation
+- Automatic output directory management
+- Custom exceptions for storage error handling
+
+Example:
+    >>> from src.storage.file_saver import FileSaver
+    >>> with FileSaver(output_dir="data", encoding="utf-8") as saver:
+    ...     file_path = saver.save("Scraped content", title="Example")
+    ...     print(f"File saved at: {file_path}")
 """
 
 import logging
 import re
+
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Final

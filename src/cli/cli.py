@@ -1,19 +1,25 @@
 """
-Interfaz de línea de comandos (CLI) para el scraper de Wikipedia.
+Module Name: cli
 
-Provee:
-- Configuración centralizada de opciones
-- Manejo robusto de errores
-- Logging estructurado
-- Sistema de comandos extensible (mediante adición de más comandos click)
+Command-line interface (CLI) for the Wikipedia scraper.
+
+This module provides a centralized interface to:
+- Configure scraper options
+- Handle errors robustly
+- Enable structured logging
+- Extend the command system (e.g., via integration with Click)
+
+Example:
+    >>> wiki --help
 """
 
-import sys
-from pathlib import Path
-from typing import Any, NoReturn, List, Optional
 
+import sys
 import click
 import logging
+
+from pathlib import Path
+from typing import Any, NoReturn, List, Optional
 
 from src.wikiscraper import WikiScraper, LanguageNotSupportedError
 from src.storage import FileSaver
@@ -77,7 +83,7 @@ class WikiCLI:
         log_level: str
     ) -> None:
         """Valida los parámetros de entrada para la CLI."""
-        if len(language) != 2 or not language.isalpha():
+        if not language.isalpha():
             raise ValueError(f"Código de idioma inválido: '{language}'. Debe ser un código ISO 639-1 de 2 letras (ej: 'es', 'en', 'fr').")
 
         if timeout <= 0:

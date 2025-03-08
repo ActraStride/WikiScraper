@@ -32,7 +32,7 @@ from urllib3.util.retry import Retry
 
 
 # Constantes
-USER_AGENT: Final[str] = "WikiScraperBot/3.0 (+https://github.com/tu_usuario/tu_repositorio)"
+USER_AGENT: Final[str] = "WikiScraperBot/3.0 (+https://github.com/ActraStride/WikiScraper)"
 VALID_LANGUAGES: Final[Set[str]] = {"en", "ceb", "es", "fr", "de", "it", "pt", "ja", "zh", "ru", "ko", "nl", "ar", "simple"}
 DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_MAX_REDIRECTS: Final[int] = 3
@@ -41,56 +41,56 @@ DEFAULT_PARSER: Final[str] = "lxml"
 
 
 class WikiScraperError(Exception):
-    """Excepción base para errores del módulo de scraping."""
+    """Base exception for errors in the scraping module."""
     pass
 
 class InvalidPageTitleError(WikiScraperError):
-    """Excepción para títulos de página inválidos o vacíos."""
+    """Exception for invalid or empty page titles."""
     pass
 
 class ParsingError(WikiScraperError):
-    """Excepción para errores durante el parsing del contenido HTML."""
+    """Exception for errors during HTML content parsing."""
     pass
 
 class LanguageNotSupportedError(WikiScraperError):
-    """Excepción para códigos de idioma no soportados."""
+    """Exception for unsupported language codes."""
     pass
 
 class NonHTMLContentError(WikiScraperError):
-    """Excepción para respuestas con contenido no HTML."""
+    """Exception for responses with non-HTML content."""
     pass
 
 
 class SearchError(WikiScraperError):
-    """Excepción general para errores durante la búsqueda en Wikipedia."""
+    """General exception for errors during Wikipedia search."""
     pass
 
 
 class NoSearchResultsError(SearchError):
-    """Excepción específica para cuando la búsqueda no devuelve resultados."""
+    """Specific exception for when a search returns no results."""
     pass
 
 
 class WikiScraper:
     """
-    Clase profesional para realizar scraping de páginas de Wikipedia
+    Professional class to scrape Wikipedia pages
 
-    Atributos:
-        language (str): Código de idioma de Wikipedia (default: "es")
-        timeout (int): Tiempo máximo de espera para peticiones HTTP en segundos
-        parser (str): Parser a utilizar por BeautifulSoup (lxml, html.parser, etc.)
-        max_retries (int): Número máximo de reintentos para peticiones fallidas
-        max_redirects (int): Límite máximo de redirecciones HTTP permitidas
+    Attributes:
+        language (str): Wikipedia language code (default: "es")
+        timeout (int): Maximum waiting time for HTTP requests in seconds
+        parser (str): Parser to be used by BeautifulSoup (lxml, html.parser, etc.)
+        max_retries (int): Maximum number of retries for failed requests
+        max_redirects (int): Maximum limit of allowed HTTP redirects
 
-    Métodos:
+    Methods:
         get_page_soup(page_title: str) -> BeautifulSoup
         _build_url(page_title: str) -> str
 
-    Ejemplo:
+    Example:
         with WikiScraper(language="es") as scraper:
             try:
                 soup = scraper.get_page_soup("Inteligencia_artificial")
-                # Procesar el contenido...
+                # Process the content...
             except WikiScraperError as e:
                 print(f"Error: {e}")
     """
@@ -105,20 +105,20 @@ class WikiScraper:
         max_redirects: int = DEFAULT_MAX_REDIRECTS
     ) -> None:
         """
-        Inicializa una nueva instancia del scraper con configuración personalizable.
+        Initializes a new scraper instance with customizable configuration.
 
         Args:
-            language: Código de idioma ISO 639-1 (default: "es")
-            timeout: Tiempo máximo de espera por respuesta HTTP
-            parser: Parser HTML para BeautifulSoup
-            max_retries: Intentos máximos para peticiones fallidas
-            max_redirects: Límite de redirecciones HTTP
+            language: ISO 639-1 language code (default: "es")
+            timeout: Maximum waiting time for HTTP response
+            parser: HTML parser for BeautifulSoup
+            max_retries: Maximum attempts for failed requests
+            max_redirects: Limit of HTTP redirects
 
         Raises:
-            LanguageNotSupportedError: Si el idioma no está en VALID_LANGUAGES
+            LanguageNotSupportedError: If the language is not in VALID_LANGUAGES
         """
         if language not in VALID_LANGUAGES:
-            raise LanguageNotSupportedError(f"Idioma '{language}' no soportado. Idiomas válidos: {', '.join(VALID_LANGUAGES)}")
+            raise LanguageNotSupportedError(f"Language '{language}' not supported. Valid languages: {', '.join(VALID_LANGUAGES)}")
         self.logger = logger
         self.language = language
         self.timeout = timeout
@@ -126,12 +126,12 @@ class WikiScraper:
         self.max_redirects = max_redirects
         self.base_url = f"https://{self.language}.wikipedia.org/"
         self.session = requests.Session()
-        
-        # Configuración de sesión HTTP
+
+        # HTTP session configuration
         self.session.headers.update({'User-Agent': USER_AGENT})
         self.session.max_redirects = self.max_redirects
 
-        # Configuración de reintentos
+        # Retry configuration
         retry_strategy = Retry(
             total=max_retries,
             backoff_factor=0.5,
@@ -143,71 +143,74 @@ class WikiScraper:
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
 
-        self.logger.debug("Scraper inicializado: %s", self.__repr__())
+        self.logger.debug("Scraper initialized: %s", self.__repr__())
+
 
     def __repr__(self) -> str:
         return (f"WikiScraper(language={self.language}, timeout={self.timeout}, "
                 f"parser={self.parser}, retries={self.session.adapters['https://'].max_retries.total})")
 
+
     def _build_url(self, page_title: str) -> str:
         """
-        Construye la URL completa y validada para la página solicitada.
+        Builds the complete and validated URL for the requested page.
 
         Args:
-            page_title: Título de la página en Wikipedia
+            page_title: Title of the page on Wikipedia
 
         Returns:
-            str: URL completa y validada
+            str: Complete and validated URL
 
         Raises:
-            InvalidPageTitleError: Si el título está vacío o es inválido
+            InvalidPageTitleError: If the title is empty or invalid
         """
         if not page_title or not isinstance(page_title, str):
-            raise InvalidPageTitleError("El título de la página debe ser una cadena no vacía")
+            raise InvalidPageTitleError("Page title must be a non-empty string")
 
         cleaned_title = page_title.strip()
         encoded_title = quote(cleaned_title, safe='')
         return urljoin(self.base_url, f"wiki/{encoded_title}")
 
+
     def get_page_soup(self, page_title: str) -> BeautifulSoup:
         """
-        Obtiene y parsea el contenido HTML de una página de Wikipedia.
+        Obtains and parses the HTML content of a Wikipedia page.
 
         Args:
-            page_title: Título de la página (ej: "Inteligencia_artificial")
+            page_title: Title of the page (e.g., "Artificial_intelligence")
 
         Returns:
-            BeautifulSoup: Objeto parseado con el contenido de la página
+            BeautifulSoup: Parsed object with the page content
 
         Raises:
-            WikiScraperError: Para errores de red, HTTP o validación
-            ParsingError: Si falla el parseo del contenido HTML
-            NonHTMLContentError: Si la respuesta no es HTML válido
+            WikiScraperError: For network, HTTP, or validation errors
+            ParsingError: If parsing the HTML content fails
+            NonHTMLContentError: If the response is not valid HTML
 
-        Ejemplo:
+        Example:
             with WikiScraper() as scraper:
-                soup = scraper.get_page_soup("Python")
+                soup = scraper.get_page_soup('Python')
                 print(soup.find('h1').text)
         """
         url = self._build_url(page_title)
-        self.logger.info("Iniciando solicitud para: %s", url)
+        self.logger.info("Initiating request for: %s", url)
 
         try:
             response = self.session.get(url, timeout=self.timeout)
-            
-            # Verificar redirecciones
+
+            # Verify redirects
             if response.history:
-                self.logger.warning("Redirección detectada (%d saltos): %s -> %s",
+                self.logger.warning("Redirect detected (%d hops): %s -> %s",
                              len(response.history), response.history[0].url, response.url)
 
-            # Validar tipo de contenido
+            # Validate content type
             content_type = response.headers.get('Content-Type', '')
             if 'text/html' not in content_type:
-                raise NonHTMLContentError(f"Tipo de contenido no válido: {content_type}")
+                raise NonHTMLContentError(f"Invalid content type: {content_type}")
 
             response.raise_for_status()
 
-            self.logger.debug("Respuesta recibida [%d] en %.2fs, Tamaño: %.2fKB",
+            self.logger.debug("Response received [%d] in %.2fs, Size: %.2fKB",
                          response.status_code,
                          response.elapsed.total_seconds(),
                          len(response.content)/1024)
@@ -216,32 +219,33 @@ class WikiScraper:
 
         except requests.RequestException as e:
             status_code = getattr(e.response, 'status_code', None)
-            error_msg = f"Error HTTP {status_code}" if status_code else f"Error de red: {e}"
+            error_msg = f"HTTP Error {status_code}" if status_code else f"Network Error: {e}"
             self.logger.error("%s - URL: %s", error_msg, url)
             raise WikiScraperError(error_msg) from e
 
         except FeatureNotFound as e:
-            self.logger.error("Parser '%s' no disponible: %s", self.parser, e)
-            raise ParsingError(f"Parser {self.parser} no disponible") from e
+            self.logger.error("Parser '%s' not available: %s", self.parser, e)
+            raise ParsingError(f"Parser {self.parser} not available") from e
 
         except Exception as e:
-            self.logger.error("Error inesperado: %s - %s", type(e).__name__, e, exc_info=True)
-            raise WikiScraperError(f"Error inesperado: {type(e).__name__} - {e}") from e
+            self.logger.error("Unexpected error: %s - %s", type(e).__name__, e, exc_info=True)
+            raise WikiScraperError(f"Unexpected error: {type(e).__name__} - {e}") from e
         
+
     def search_wikipedia(self, query: str, limit: int = 5) -> List[str]:
         """
-        Busca títulos de páginas en Wikipedia usando la API.
+        Searches for page titles on Wikipedia using the API.
 
         Args:
-            query: Término de búsqueda.
-            limit: Número máximo de resultados a devolver.
+            query: Search term.
+            limit: Maximum number of results to return.
 
         Returns:
-            Una lista de títulos de páginas de Wikipedia que coinciden con la búsqueda.
+            A list of Wikipedia page titles that match the search.
 
         Raises:
-            SearchError: Si hay un error en la solicitud a la API.
-            NoSearchResultsError: Si la búsqueda no devuelve resultados.
+            SearchError: If there is an error in the API request.
+            NoSearchResultsError: If the search returns no results.
         """
         search_url = urljoin(self.base_url, "w/api.php")
         params = {
@@ -253,92 +257,91 @@ class WikiScraper:
             "srprop": "",
         }
 
-        self.logger.info(f"Iniciando búsqueda en Wikipedia para la consulta: '{query}' con límite de {limit} resultados.")
-        self.logger.debug(f"URL de búsqueda: {search_url} | Parámetros: {params}")
+        self.logger.info(f"Initiating Wikipedia search for query: '{query}' with a limit of {limit} results.")
+        self.logger.debug(f"Search URL: {search_url} | Parameters: {params}")
 
         try:
             response = self.session.get(search_url, params=params, timeout=self.timeout)
             response.raise_for_status()
-            self.logger.info("Respuesta recibida de la API de Wikipedia exitosamente.")
+            self.logger.info("Response received from the Wikipedia API successfully.")
             data = response.json()
-            self.logger.debug(f"Datos recibidos de la API: {data}")
+            self.logger.debug(f"Data received from the API: {data}")
 
-            # Verificar errores de la API
+            # Verify API errors
             if "error" in data:
-                error_info = data["error"].get("info", "Error desconocido en la API de Wikipedia")
-                self.logger.error(f"Error en la API de Wikipedia: {error_info}")
-                raise SearchError(f"Error en la API: {error_info}")
+                error_info = data["error"].get("info", "Unknown error in Wikipedia API")
+                self.logger.error(f"Error in Wikipedia API: {error_info}")
+                raise SearchError(f"API Error: {error_info}")
 
-            # Verificar estructura de la respuesta
+            # Verify response structure
             if "query" not in data or "search" not in data["query"]:
-                self.logger.error(f"Estructura inesperada en la respuesta para la búsqueda '{query}'.")
-                raise NoSearchResultsError(f"La búsqueda '{query}' no devolvió resultados.")
+                self.logger.error(f"Unexpected structure in the response for search '{query}'.")
+                raise NoSearchResultsError(f"The search '{query}' returned no results.")
 
             results = [item["title"] for item in data["query"]["search"]]
-            self.logger.info(f"Búsqueda completada. Se encontraron {len(results)} resultados para '{query}'.")
+            self.logger.info(f"Search completed. Found {len(results)} results for '{query}'.")
 
-            # Verificar si hay resultados vacíos
+            # Verify if there are empty results
             if not results:
-                self.logger.warning(f"La búsqueda '{query}' no devolvió resultados.")
-                raise NoSearchResultsError(f"La búsqueda '{query}' no devolvió resultados.")
+                self.logger.warning(f"The search '{query}' returned no results.")
+                raise NoSearchResultsError(f"The search '{query}' returned no results.")
 
             return results
 
         except requests.RequestException as e:
-            self.logger.exception(f"Error en la búsqueda en Wikipedia: {e}")
-            raise SearchError(f"Error en la búsqueda en Wikipedia: {e}") from e
+            self.logger.exception(f"Error in Wikipedia search: {e}")
+            raise SearchError(f"Error in Wikipedia search: {e}") from e
         except (KeyError, ValueError) as e:
-            self.logger.exception(f"Error procesando la respuesta de la API: {e}")
-            raise SearchError(f"Error procesando la respuesta de la API: {e}") from e
+            self.logger.exception(f"Error processing the API response: {e}")
+            raise SearchError(f"Error processing the API response: {e}") from e
 
-    
 
     def get_page_soup_with_search(self, query: str) -> BeautifulSoup:
         """
-        Obtiene el contenido de una página utilizando la búsqueda de Wikipedia.
+        Retrieves the content of a page using Wikipedia search.
 
         Args:
-            query: Término de búsqueda o título de la página.
+            query: Search term or page title.
 
         Returns:
-            BeautifulSoup: Objeto parseado con el contenido de la página.
+            BeautifulSoup: Parsed object with the page content.
 
         Raises:
-            WikiScraperError: Si hay errores en la búsqueda o al obtener la página.
-            NoSearchResultsError: Si no se encuentran resultados de búsqueda.
+            WikiScraperError: If there are errors in the search or when getting the page.
+            NoSearchResultsError: If no search results are found.
         """
-        self.logger.info(f"Iniciando obtención de contenido para la consulta: '{query}'.")
+        self.logger.info(f"Initiating content retrieval for query: '{query}'.")
         try:
-            # Paso 1: Buscar el término
-            search_results = self.search_wikipedia(query)  # search_wikipedia ahora maneja resultados vacíos
-            self.logger.info(f"Resultados de búsqueda obtenidos: {search_results}")
+            # Step 1: Search for the term
+            search_results = self.search_wikipedia(query)  # search_wikipedia now handles empty results
+            self.logger.info(f"Search results obtained: {search_results}")
 
-            # Paso 2: Intentar recuperar la primera página
+            # Step 2: Attempt to retrieve the first page
             first_result_title = search_results[0]
-            self.logger.info(f"Recuperando contenido de la página: '{first_result_title}'.")
+            self.logger.info(f"Retrieving content from page: '{first_result_title}'.")
             page_soup = self.get_page_soup(first_result_title)
-            self.logger.info(f"Contenido de la página '{first_result_title}' obtenido exitosamente.")
+            self.logger.info(f"Content of page '{first_result_title}' obtained successfully.")
             return page_soup
 
         except WikiScraperError as e:
-            self.logger.error(f"Error al obtener '{first_result_title}': {str(e)}")
-            raise  # Relanza la excepción preservando el traceback original
+            self.logger.error(f"Error getting '{first_result_title}': {str(e)}")
+            raise  # Reraises the exception preserving the original traceback
 
 
     
     def get_page_raw_text(self, page_title: str) -> str:
         """
-        Obtiene el contenido de un artículo de Wikipedia en texto plano utilizando la API.
+        Retrieves the content of a Wikipedia article in plain text using the API.
 
         Args:
-            page_title: Título de la página de Wikipedia.
+            page_title: Title of the Wikipedia page.
 
         Returns:
-            str: El contenido del artículo en texto plano.
+            str: The content of the article in plain text.
 
         Raises:
-            WikiScraperError: Si hay un error al comunicarse con la API o al procesar la respuesta.
-            NoSearchResultsError: Si la página no se encuentra o no tiene contenido.
+            WikiScraperError: If there is an error communicating with the API or processing the response.
+            NoSearchResultsError: If the page is not found or has no content.
         """
         api_url = urljoin(self.base_url, "w/api.php")
         params = {
@@ -346,217 +349,263 @@ class WikiScraper:
             "format": "json",
             "titles": page_title,
             "prop": "extracts",
-            "explaintext": "true",  # Importante para obtener texto plano
-            "exlimit": "1",  # Limitar a una página (la solicitada)
+            "explaintext": "true",  # Important to get plain text
+            "exlimit": "1",  # Limit to one page (the requested one)
         }
 
-        self.logger.info(f"Obteniendo texto plano para '{page_title}' desde la API.")
-        self.logger.debug(f"URL de la API: {api_url} | Parámetros: {params}")
+        self.logger.info(f"Getting plain text for '{page_title}' from the API.")
+        self.logger.debug(f"API URL: {api_url} | Parameters: {params}")
 
         try:
             response = self.session.get(api_url, params=params, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
-            self.logger.debug(f"Respuesta de la API: {data}")
+            self.logger.debug(f"API Response: {data}")
 
             if "error" in data:
-                error_info = data["error"].get("info", "Error desconocido en la API de Wikipedia")
-                self.logger.error(f"Error en la API de Wikipedia: {error_info}")
-                raise SearchError(f"Error en la API: {error_info}")
+                error_info = data["error"].get("info", "Unknown error in Wikipedia API")
+                self.logger.error(f"Error in Wikipedia API: {error_info}")
+                raise SearchError(f"API Error: {error_info}")
 
             query = data.get("query", {})
             pages = query.get("pages", {})
 
             if not pages:
-                self.logger.warning(f"No se encontró la página '{page_title}' en la respuesta de la API.")
-                raise NoSearchResultsError(f"No se encontró la página '{page_title}'.")
+                self.logger.warning(f"Page '{page_title}' not found in the API response.")
+                raise NoSearchResultsError(f"Page '{page_title}' not found.")
 
-            # Las páginas están indexadas por pageid, normalmente solo habrá una
+            # Pages are indexed by pageid, normally there will only be one
             page_content = None
             for page_id in pages:
                 page_data = pages[page_id]
                 if "extract" in page_data:
                     page_content = page_data["extract"]
-                    break  # Tomamos el contenido de la primera página (debería ser la única con exlimit=1)
+                    break  # Take the content of the first page (should be the only one with exlimit=1)
                 elif "missing" in page_data:
-                    self.logger.warning(f"Página '{page_title}' no encontrada (missing en la API).")
-                    raise NoSearchResultsError(f"Página '{page_title}' no encontrada.")
+                    self.logger.warning(f"Page '{page_title}' not found (missing in API).")
+                    raise NoSearchResultsError(f"Page '{page_title}' not found.")
                 else:
-                    self.logger.warning(f"Respuesta inesperada de la API para '{page_title}': {page_data}")
-                    raise SearchError(f"Respuesta inesperada de la API al obtener '{page_title}'.")
+                    self.logger.warning(f"Unexpected API response for '{page_title}': {page_data}")
+                    raise SearchError(f"Unexpected API response when getting '{page_title}'.")
 
             if page_content:
-                self.logger.info(f"Texto plano obtenido exitosamente para '{page_title}'.")
+                self.logger.info(f"Plain text obtained successfully for '{page_title}'.")
                 return page_content
             else:
-                self.logger.warning(f"No se pudo extraer el contenido de texto plano para '{page_title}'.")
-                raise NoSearchResultsError(f"No se pudo obtener el contenido de texto plano para '{page_title}'.")
+                self.logger.warning(f"Could not extract plain text content for '{page_title}'.")
+                raise NoSearchResultsError(f"Could not get plain text content for '{page_title}'.")
 
 
         except requests.RequestException as e:
-            self.logger.exception(f"Error al obtener texto plano de la API para '{page_title}': {e}")
-            raise SearchError(f"Error de comunicación con la API: {e}") from e
+            self.logger.exception(f"Error getting plain text from API for '{page_title}': {e}")
+            raise SearchError(f"API communication error: {e}") from e
         except (KeyError, ValueError) as e:
-            self.logger.exception(f"Error al procesar la respuesta de la API para '{page_title}': {e}")
-            raise SearchError(f"Error al procesar la respuesta de la API: {e}") from e
+            self.logger.exception(f"Error processing API response for '{page_title}': {e}")
+            raise SearchError(f"Error processing API response: {e}") from e
     
     
     def get_page_links(self, page_title: str,
-                           link_type: str = "internal",
-                           limit: int = 500,
-                           namespace: Optional[int] = None) -> List[str]:
+                   link_type: str = "internal",
+                   limit: int = 500,
+                   namespace: Optional[int] = None) -> List[str]:
         """
-        Retrieves links from a Wikipedia page using the API.
+        Retrieves links from a Wikipedia page using the MediaWiki API.
+
+        This method handles pagination automatically and supports different
+        types of links that can be extracted from Wikipedia pages.
 
         Args:
-            page_title: Title of the page.
-            link_type: Type of link ('internal', 'external', 'linkshere', 'interwiki').
-            limit: Maximum number of links to return (API limit: 500 for users, 5000 for bots).
-            namespace: Filter by namespace (e.g., 0 for main, 1 for discussion, etc.).
-                       See https://www.mediawiki.org/wiki/Help:Namespaces
+            page_title: Title of the Wikipedia page to retrieve links from.
+            link_type: Type of links to retrieve. Options are:
+                    - 'internal': Links to other Wikipedia pages (default)
+                    - 'external': Links to external websites
+                    - 'linkshere': Pages that link to this page
+                    - 'interwiki': Links to pages on other wikis
+            limit: Maximum number of links to return (1-500 for regular users,
+                up to 5000 for bots with proper authentication).
+            namespace: Filter links by MediaWiki namespace ID. 
+                    Examples: 0 (main), 1 (talk), 14 (category)
+                    See https://www.mediawiki.org/wiki/Help:Namespaces for full list
 
         Returns:
-            A list of page titles (for internal and linkshere links),
-            URLs (for external links), or interwiki prefixes with page titles (for interwiki links).
+            List[str]: Depending on link_type:
+                    - internal/linkshere: Page titles
+                    - external: URLs as strings
+                    - interwiki: Strings in format "prefix:title"
 
         Raises:
-            WikiScraperError: If there is an error in the API request.
-            ValueError: If the link type is invalid.
+            ValueError: If an invalid link_type is provided
+            WikiScraperError: For API errors, network issues, or parsing problems
         """
-        logger = logging.getLogger(__name__)
-
-        ALLOWED_LINK_TYPES = ["internal", "external", "linkshere", "interwiki"] # Constant for valid link types
-        API_ACTION = "query"
-        API_FORMAT = "json"
-        API_PROP = None # Will be set dynamically based on link_type
-
-        if link_type not in ALLOWED_LINK_TYPES:
-            raise ValueError(f"Invalid link type. Must be one of: {', '.join(ALLOWED_LINK_TYPES)}")
-
-        module = ""        # API Module for 'prop' parameter
-        param_prefix = ""  # Parameter prefix for API (e.g., 'pl', 'el', 'lh', 'iw')
-        result_key = ""    # Key in the API response containing the link results
-
-        if link_type == "internal":
-            module = "links"
-            param_prefix = "pl"
-            result_key = "links"
-            API_PROP = module # set prop based on module
-        elif link_type == "external":
-            module = "extlinks"
-            param_prefix = "el"
-            result_key = "extlinks"
-            API_PROP = module
-        elif link_type == "linkshere":
-            module = "linkshere"
-            param_prefix = "lh"
-            result_key = "linkshere"
-            API_PROP = module
-        elif link_type == "interwiki":
-            module = "iwlinks"
-            param_prefix = "iw"
-            result_key = "iwlinks"
-            API_PROP = module
-
-
+        # Link type configuration - maps link types to their API parameters
+        LINK_TYPE_CONFIG = {
+            "internal": {"module": "links", "param_prefix": "pl", "result_key": "links"},
+            "external": {"module": "extlinks", "param_prefix": "el", "result_key": "extlinks"},
+            "linkshere": {"module": "linkshere", "param_prefix": "lh", "result_key": "linkshere"},
+            "interwiki": {"module": "iwlinks", "param_prefix": "iw", "result_key": "iwlinks"}
+        }
+        
+        # Validate link type before proceeding
+        if link_type not in LINK_TYPE_CONFIG:
+            valid_types = ", ".join(LINK_TYPE_CONFIG.keys())
+            raise ValueError(f"Invalid link type '{link_type}'. Must be one of: {valid_types}")
+        
+        # Validate limit parameter
+        if not isinstance(limit, int) or limit <= 0:
+            raise ValueError("Limit must be a positive integer")
+        
+        # Get configuration for the requested link type
+        config = LINK_TYPE_CONFIG[link_type]
+        module = config["module"]
+        param_prefix = config["param_prefix"]
+        result_key = config["result_key"]
+        
+        # API endpoint for MediaWiki
         api_url = urljoin(self.base_url, "w/api.php")
-
-        def build_params(continue_token: Optional[Dict[str, str]] = None) -> Dict[str, Any]: # Function for building params, supporting continue token
-            """Builds API parameters for link retrieval, including pagination."""
+        
+        self.logger.info(f"Retrieving {link_type} links from '{page_title}' with limit {limit}")
+        
+        def build_params(continue_token=None):
+            """
+            Builds API request parameters including pagination tokens if available.
+            
+            Args:
+                continue_token: Dictionary with continuation tokens from previous response
+                
+            Returns:
+                Dict containing all parameters needed for the API request
+            """
             params = {
-                "action": API_ACTION,
-                "format": API_FORMAT,
+                "action": "query",
+                "format": "json",
                 "titles": page_title,
-                "prop": API_PROP,
-                f"{param_prefix}limit": str(limit), # Limit needs to be string according to API
+                "prop": module,
+                f"{param_prefix}limit": str(limit),
             }
+            
+            # Add namespace filter if specified
             if namespace is not None:
-                params[f"{param_prefix}namespace"] = str(namespace) # Namespace also string
+                params[f"{param_prefix}namespace"] = str(namespace)
+                
+            # Add continuation parameters if we're paginating
             if continue_token:
-                params.update(continue_token) # Use update to merge continue params
+                params.update(continue_token)
+                
             return params
-
-
-        def extract_links_from_response(page_data: Dict[str, Any], link_type: str) -> List[str]:
-            """Extracts links of the specified type from a page data dictionary."""
+        
+        def extract_links_from_page(page_data):
+            """
+            Extracts and formats links from a page data dictionary.
+            
+            Args:
+                page_data: Dictionary containing page information from API response
+                
+            Returns:
+                List of formatted link strings based on the link_type
+            """
             extracted_links = []
+            
+            # Check if page has links of the requested type
             if result_key in page_data:
                 for item in page_data[result_key]:
                     if link_type == "external":
-                        extracted_links.append(item["*"])  # URL of external link
+                        # External links have URLs in the "*" field
+                        extracted_links.append(item["*"])
                     elif link_type == "interwiki":
-                         extracted_links.append(item["prefix"] + ":" + item["*"]) # Prefix and page title
+                        # Interwiki links combine prefix and title
+                        extracted_links.append(f"{item['prefix']}:{item['*']}")
                     else:
-                        extracted_links.append(item["title"])  # Page title for internal/linkshere
+                        # Internal and linkshere links use the title field
+                        extracted_links.append(item["title"])
+                        
             return extracted_links
-
-
-        links = []
-        continue_data = None  # Pagination continuation dictionary
-
-        self.logger.info(f"Retrieving {link_type} links from '{page_title}' with limit {limit}.")
-        api_query_params_log = build_params()
-        self.logger.debug(f"API Request URL: {api_url} | Parameters (initial): {api_query_params_log}")
-
-
-        while True:  # Pagination loop
+        
+        # Initialize results and pagination variables
+        all_links = []
+        continue_data = None
+        
+        # Log initial request parameters for debugging
+        initial_params = build_params()
+        self.logger.debug(f"API Request URL: {api_url} | Parameters: {initial_params}")
+        
+        # Pagination loop - continues until all results are retrieved
+        while True:
             try:
-                request_params = build_params(continue_data) # Build params, now including continue if available.
+                # Build request parameters (including continue token if available)
+                request_params = build_params(continue_data)
+                
+                # Make the API request
                 response = self.session.get(api_url, params=request_params, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
-                self.logger.debug(f"API response data received: {data}")
-
-
+                
+                # Check for API errors
                 if "error" in data:
                     error_info = data["error"].get("info", "Unknown Wikipedia API error")
-                    error_code = data['error'].get('code')
+                    error_code = data["error"].get("code", "unknown")
                     self.logger.error(f"Wikipedia API error: {error_info} | Code: {error_code}")
                     raise WikiScraperError(f"API Error: {error_info} (Code: {error_code})")
-
-
+                
+                # Get the pages data from the response
                 query_data = data.get("query", {})
                 pages_data = query_data.get("pages", {})
-
-                if not pages_data: # Check for no pages returned in query - potentially page not found? Or just no links of requested type.
-                    self.logger.warning(f"No pages data found in API response for '{page_title}'. Possibly no {link_type} links or page not found.")
-                    break # If no pages, assuming no more links, break the loop, avoid error if page not found is not explicitly checked.
-                    # Depending on requirements, could raise NoSearchResultsError if you want to specifically flag page not found for link retrieval too, but current impl. suggests returning empty list if no links or page is problematic in this context.
-
-
-                for page_id, page_info in pages_data.items():
-                    links.extend(extract_links_from_response(page_info, link_type)) # Extract links and extend results
-
-
-                continue_data = data.get("continue") # Get continue info for pagination. If not present, it's None
+                
+                # Handle case where no pages are found
+                if not pages_data:
+                    self.logger.warning(
+                        f"No pages data found for '{page_title}'. Page may not exist or has no {link_type} links."
+                    )
+                    break
+                
+                # Process each page in the response (typically just one)
+                for _, page_info in pages_data.items():
+                    new_links = extract_links_from_page(page_info)
+                    all_links.extend(new_links)
+                    
+                    # Log missing page warning if applicable
+                    if "missing" in page_info:
+                        self.logger.warning(f"Page '{page_title}' does not exist")
+                
+                # Check if we need to continue pagination
+                continue_data = data.get("continue")
                 if continue_data:
-                    self.logger.debug(f"Continuing pagination with parameters: {continue_data}")
+                    self.logger.debug(f"Continuing pagination with token: {continue_data}")
                 else:
-                    break # No 'continue' in response, pagination is complete
-
-
+                    # No more results to retrieve
+                    break
+                    
             except requests.HTTPError as http_err:
-                status_code = http_err.response.status_code if http_err.response else 'N/A'
-                reason = http_err.response.reason if http_err.response else 'N/A'
-                self.logger.error(f"HTTP error {status_code}: {reason} retrieving links.")
-                raise WikiScraperError(f"HTTP Error: {status_code} - {reason} during link retrieval") from http_err
-            except requests.Timeout as timeout_err:
-                self.logger.error("Timeout during Wikipedia link retrieval.")
-                raise WikiScraperError("Timeout during link retrieval from Wikipedia") from timeout_err
-            except KeyError as key_err:
-                self.logger.error(f"Key error processing API response for links: {key_err}")
-                raise WikiScraperError("Error processing API response structure for links") from key_err
+                # Extract status code and reason from the HTTP error
+                status_code = getattr(http_err.response, "status_code", "N/A")
+                reason = getattr(http_err.response, "reason", "Unknown HTTP error")
+                
+                self.logger.error(f"HTTP error {status_code}: {reason} retrieving links from '{page_title}'")
+                raise WikiScraperError(f"HTTP Error: {status_code} - {reason}") from http_err
+                
+            except requests.Timeout:
+                self.logger.error(f"Request timeout retrieving links from '{page_title}'")
+                raise WikiScraperError("Timeout during link retrieval from Wikipedia")
+                
             except Exception as e:
-                self.logger.exception(f"Unexpected error during Wikipedia link retrieval: {e}")
-                raise WikiScraperError("Unexpected error during link retrieval from Wikipedia") from e
-
-
-        self.logger.info(f"Retrieved {len(links)} {link_type} links from '{page_title}'.")
-        return links
-            
+                self.logger.exception(f"Unexpected error during link retrieval: {str(e)}")
+                raise WikiScraperError(f"Unexpected error during link retrieval: {str(e)}") from e
+        
+        self.logger.info(f"Retrieved {len(all_links)} {link_type} links from '{page_title}'")
+        return all_links
+                
     def get_page_categories(self, page_title: str) -> List[str]:
         """
         Retrieves categories for a Wikipedia article using the API with full pagination.
+
+        Args:
+            page_title: Title of the Wikipedia page.
+
+        Returns:
+            List[str]: A list of category names for the page.
+
+        Raises:
+            WikiScraperError: If there is an error communicating with the API or processing the response.
+            NoSearchResultsError: If the page is not found or has no categories.
         """
         logger = logging.getLogger(__name__) # Get logger based on module name, standard practice
 
@@ -565,7 +614,7 @@ class WikiScraper:
         API_PROP = "categories"
         API_CATEGORY_LIMIT = "max" # Which corresponds to 500, maximum allowed by the API
         API_CATEGORY_SHOW = "!hidden"
-        API_CATEGORY_NAMESPACE = 14
+        API_CATEGORY_NAMESPACE = 14 # Categories namespace
 
         def build_params(continue_token: str = None) -> Dict[str, str]:
             """Builds API parameters with pagination support."""
@@ -656,6 +705,4 @@ class WikiScraper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.session.close()
-        self.logger.debug("Sesión HTTP cerrada correctamente")
-
-
+        self.logger.debug("HTTP session closed successfully")

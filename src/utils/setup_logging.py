@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Final
 from logging.handlers import RotatingFileHandler
 
-# Constantes inmutables (type hinted)
+# Immutable constants (type hinted)
 LOG_DIR_NAME: Final[str] = "logs"
 LOG_FILE_NAME: Final[str] = "application.log"
 LOG_FORMAT: Final[str] = (
@@ -35,7 +35,7 @@ LOG_BACKUP_COUNT: Final[int] = 5
 LOG_ENCODING: Final[str] = "utf-8"
 
 class LoggingSetupError(Exception):
-    """Excepción personalizada para errores de configuración de logging."""
+    """Custom exception for logging configuration errors."""
     pass
 
 def get_log_dir(project_root: Path = None) -> Path:
@@ -53,7 +53,7 @@ def get_log_dir(project_root: Path = None) -> Path:
     """
     try:
         if project_root is None:
-            # Assumes this file is located in proyecto_root/app/utils
+            # Assumes this file is located in project_root/src/utils
             project_root = Path(__file__).resolve().parent.parent.parent
             
         log_dir = project_root / LOG_DIR_NAME

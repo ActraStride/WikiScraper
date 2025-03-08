@@ -36,134 +36,162 @@ Example (Simplified - Focuses on module usage):
 import logging
 from typing import List, Dict, Set
 
-from src.wikiscraper import WikiScraper, WikiScraperError  # Importa todos los errores relevantes de WikiScraper
-from src.storage import FileSaver # Importa también los errores de FileSaver si se van a usar directamente en el Service
+from src.wikiscraper import WikiScraper, WikiScraperError  
+from src.storage import FileSaver 
 from src.service.models import *
-from pathlib import Path # Import pathlib for cleaner path handling in example
-
+from pathlib import Path 
 
 class WikiServiceError(Exception):
-    """Excepción base para errores generales del servicio WikiService."""
+    """Base class for general WikiService errors."""
     pass
 
 
 class SearchServiceError(WikiServiceError):
-    """Excepción para errores específicos durante la operación de búsqueda en el servicio."""
+    """Raised when a specific error occurs during a search operation in the service."""
     pass
 
 
 class PageContentServiceError(WikiServiceError):
-    """Excepción para errores al obtener contenido de una página."""
+    """Raised when there is an error retrieving content from a page."""
     pass
 
 class PageMappingServiceError(WikiServiceError):
-    """Excepción para errores durante el mapeo de enlaces de páginas."""
+    """Raised when an error occurs during the mapping of page links."""
     pass
 
+
 class WikiService:
-    """
-    Servicio centralizado para interactuar con Wikipedia, abstrayendo la lógica de negocio
-    y proporcionando una interfaz limpia para operaciones relacionadas con Wikipedia.
+    """Provides a centralized service to interact with Wikipedia.
 
-    Este servicio utiliza `WikiScraper` para acceder a la información de Wikipedia
-    y `FileSaver` para las operaciones de guardado si son necesarias.  Está diseñado
-    para desacoplar la lógica de la CLI, API, o cualquier otra interfaz de usuario
-    de la funcionalidad central de scraping y procesamiento de datos de Wikipedia.
+    Abstracts the business logic for Wikipedia interactions, providing a clean
+    interface for Wikipedia-related operations.
+
+    This service utilizes `WikiScraper` to access Wikipedia information and
+    `FileSaver` for saving operations when necessary. It is designed to decouple
+    the logic of the CLI, API, or any other user interface from the core
+    functionality of scraping and processing Wikipedia data.
+
+    Attributes:
+        scraper (WikiScraper): An instance of WikiScraper used for fetching
+            data from Wikipedia.
+        file_saver (FileSaver): An instance of FileSaver used for saving
+            content to the file system.
+        logger (logging.Logger): A logger instance for logging service events
+            and errors.
+
+    Methods:
+        
     """
 
-    def __init__(self, scraper: WikiScraper, file_saver: FileSaver, logger: logging.Logger) -> None:
-        """
-        Inicializa el servicio WikiService con sus dependencias.
+    def __init__(self, scraper: 'WikiScraper', file_saver: 'FileSaver', logger: logging.Logger) -> None:
+        """Initializes the WikiService with its dependencies.
+
+        The WikiService depends on a `WikiScraper` for fetching data from
+        Wikipedia and a `FileSaver` for persisting data to the filesystem.
+        It also uses a logger for internal logging and error reporting.
 
         Args:
-            scraper (WikiScraper): Instancia de WikiScraper previamente configurada e inicializada.
-                                   Responsable de realizar las peticiones y extraer datos de Wikipedia.
-            file_saver (FileSaver): Instancia de FileSaver previamente configurada e inicializada.
-                                    Responsable de guardar contenido en el sistema de archivos, si es necesario.
-            logger (logging.Logger):  Instancia de logger ya configurada para el sistema.
-                                     Se utiliza para registrar eventos, errores y depuración dentro del servicio.
+            scraper: A pre-configured and initialized instance of WikiScraper.
+                     Responsible for making requests to Wikipedia and extracting data.
+            file_saver: A pre-configured and initialized instance of FileSaver.
+                      Responsible for saving content to the file system, if needed.
+            logger: A pre-configured logger instance for the system.
+                    Used for logging events, errors, and debugging within the service.
         """
         self.scraper = scraper
-        self.file_saver = file_saver  # Guarda el FileSaver si el servicio lo necesita para alguna operación
+        self.file_saver = file_saver  # Store FileSaver if service needs it for operations
         self.logger = logger
-        self.logger.debug("Servicio WikiService inicializado correctamente.")
+        self.logger.debug("WikiService initialized successfully.")
 
 
     def search_articles(self, query: str, limit: int = 5) -> SearchResults:
-        """
-        Busca artículos en Wikipedia que coincidan con el término de búsqueda dado.
+        """Searches Wikipedia for articles matching the given query.
+
+        Initiates a search on Wikipedia using the provided query string.
+        It uses the `WikiScraper` to perform the search and returns a list
+        of article titles that match the query, up to the specified limit.
 
         Args:
-            query (str): Término de búsqueda para buscar en Wikipedia.
-            limit (int, optional): Número máximo de resultados a retornar. Por defecto es 5.
+            query: The search term to look up on Wikipedia.
+            limit: The maximum number of search results to return. Defaults to 5.
 
         Returns:
-            List[str]: Una lista de títulos de artículos de Wikipedia que coinciden con la búsqueda.
-                       Retorna una lista vacía si no se encuentran resultados.
+            SearchResults: A SearchResults object containing a list of SearchResult objects,
+                           each representing a Wikipedia article title that matches the search query.
+                           Returns an empty SearchResults object if no results are found.
 
         Raises:
-            SearchServiceError: Si ocurre cualquier error durante la búsqueda en Wikipedia.
-                               Encapsula excepciones de nivel inferior como `WikiScraperError`.
+            SearchServiceError: If any error occurs during the Wikipedia search operation.
+                                 This exception encapsulates lower-level exceptions like
+                                 `WikiScraperError` to provide a service-level error abstraction.
         """
-        self.logger.info(f"Iniciando búsqueda de artículos para: '{query}' (límite: {limit} resultados).")
+        self.logger.info(f"Starting article search for: '{query}' (limit: {limit} results).")
         try:
             results_titles: List[str] = self.scraper.search_wikipedia(query=query, limit=limit)
             if not results_titles:
-                self.logger.warning(f"No se encontraron artículos para la búsqueda: '{query}'.")
-                return SearchResults(results=[])  # Retorna SearchResults vacío
-            search_results_list: List[SearchResult] = [SearchResult(title=title) for title in results_titles] # Crea objetos SearchResult
-            search_results = SearchResults(results=search_results_list) # Encapsula en SearchResults
-            self.logger.debug(f"Búsqueda para '{query}' completada, se encontraron {len(search_results)} artículos.")
+                self.logger.warning(f"No articles found for search query: '{query}'.")
+                return SearchResults(results=[])  # Return empty SearchResults
+            search_results_list: List[SearchResult] = [SearchResult(title=title) for title in results_titles] # Create SearchResult objects
+            search_results = SearchResults(results=search_results_list) # Encapsulate in SearchResults
+            self.logger.debug(f"Search for '{query}' completed, found {len(search_results)} articles.")
             return search_results
-        except WikiScraperError as e:  # Captura errores específicos del scraper
-            self.logger.error(f"Error al buscar artículos para '{query}': {e}", exc_info=True)
-            raise SearchServiceError(f"Error durante la búsqueda de artículos: {e}") from e  # Relanza con excepción de servicio
-        except Exception as e:  # Captura cualquier otro error inesperado
-            self.logger.critical(f"Error INESPERADO durante la búsqueda de artículos para '{query}': {e}", exc_info=True)
-            raise SearchServiceError(f"Error inesperado en la búsqueda de artículos: {e}") from e
+        except WikiScraperError as e:  # Catch specific scraper errors
+            self.logger.error(f"Error searching articles for '{query}': {e}", exc_info=True)
+            raise SearchServiceError(f"Error during article search: {e}") from e  # Re-raise as service error
+        except Exception as e:  # Catch any other unexpected errors
+            self.logger.critical(f"UNEXPECTED error during article search for '{query}': {e}", exc_info=True)
+            raise SearchServiceError(f"Unexpected error in article search: {e}") from e
         
     
     def get_article_raw_content(self, query: str) -> WikipediaRawContent:
-        """
-        Obtiene el contenido en texto plano del primer artículo de Wikipedia que coincida
-        con el término de búsqueda.
-        
+        """Retrieves the raw text content of the first Wikipedia article matching the query.
+
+        Searches Wikipedia for articles matching the given query and retrieves
+        the plain text content of the top result. If no articles are found or
+        if the content retrieval fails, it returns an empty `WikipediaRawContent`
+        object or raises a `PageContentServiceError` in case of errors.
+
         Args:
-            query: Término de búsqueda para el artículo.
-            
+            query: The search term to find a Wikipedia article for.
+
         Returns:
-            WikipediaRawContent: Objeto con el título y contenido del artículo.
-            
+            WikipediaRawContent: An object containing the title and raw text
+                                 content of the article. If no article is found
+                                 or content cannot be retrieved, the content
+                                 attribute will be an empty string.
+
         Raises:
-            PageContentServiceError: Si ocurre un error al obtener el contenido.
+            PageContentServiceError: If an error occurs while fetching the article content.
+                                     This could be due to issues with the WikiScraper
+                                     or network problems.
         """
-        self.logger.info(f"Buscando y obteniendo contenido de artículo para: '{query}'")
-        
+        self.logger.info(f"Fetching article content for: '{query}'")
+
         try:
-            # Primero buscamos el artículo
+            # First, search for the article
             search_results = self.scraper.search_wikipedia(query=query, limit=1)
-            
+
             if not search_results:
-                self.logger.warning(f"No se encontraron artículos para la búsqueda: '{query}'")
+                self.logger.warning(f"No articles found for search query: '{query}'")
                 return WikipediaRawContent(title="", content="")
-            
-            # Obtenemos el título del primer resultado
+
+            # Get the title of the first result
             page_title = search_results[0]
-            self.logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto del artículo...")
-            
-            # Obtenemos el contenido del artículo
+            self.logger.info(f"First search result: '{page_title}'. Getting article text...")
+
+            # Get the content of the article
             page_text = self.scraper.get_page_raw_text(page_title=page_title)
-            
+
             if not page_text:
-                self.logger.warning(f"No se pudo obtener el texto del artículo '{page_title}'")
+                self.logger.warning(f"Could not retrieve text for article '{page_title}'")
                 return WikipediaRawContent(title=page_title, content="")
-            
-            self.logger.info(f"Contenido del artículo '{page_title}' obtenido con éxito")
+
+            self.logger.info(f"Successfully retrieved content for article '{page_title}'")
             return WikipediaRawContent(title=page_title, content=page_text)
-            
+
         except WikiScraperError as e:
-            self.logger.error(f"Error al obtener contenido para '{query}': {e}", exc_info=True)
-            raise PageContentServiceError(f"Error al obtener contenido del artículo: {e}") from e
+            self.logger.error(f"Error retrieving content for '{query}': {e}", exc_info=True)
+            raise PageContentServiceError(f"Error retrieving article content: {e}") from e
         except Exception as e:
-            self.logger.critical(f"Error INESPERADO al obtener contenido para '{query}': {e}", exc_info=True)
-            raise PageContentServiceError(f"Error inesperado al obtener contenido del artículo: {e}") from e
+            self.logger.critical(f"UNEXPECTED error retrieving content for '{query}': {e}", exc_info=True)
+            raise PageContentServiceError(f"Unexpected error retrieving article content: {e}") from e

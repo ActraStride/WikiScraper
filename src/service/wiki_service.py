@@ -38,7 +38,7 @@ from typing import List, Dict, Set
 
 from src.wikiscraper import WikiScraper, WikiScraperError  # Importa todos los errores relevantes de WikiScraper
 from src.storage import FileSaver # Importa también los errores de FileSaver si se van a usar directamente en el Service
-from src.service.models import SearchResult, SearchResults
+from src.service.models import *
 from pathlib import Path # Import pathlib for cleaner path handling in example
 
 
@@ -121,3 +121,49 @@ class WikiService:
         except Exception as e:  # Captura cualquier otro error inesperado
             self.logger.critical(f"Error INESPERADO durante la búsqueda de artículos para '{query}': {e}", exc_info=True)
             raise SearchServiceError(f"Error inesperado en la búsqueda de artículos: {e}") from e
+        
+    
+    def get_article_raw_content(self, query: str) -> WikipediaRawContent:
+        """
+        Obtiene el contenido en texto plano del primer artículo de Wikipedia que coincida
+        con el término de búsqueda.
+        
+        Args:
+            query: Término de búsqueda para el artículo.
+            
+        Returns:
+            WikipediaRawContent: Objeto con el título y contenido del artículo.
+            
+        Raises:
+            PageContentServiceError: Si ocurre un error al obtener el contenido.
+        """
+        self.logger.info(f"Buscando y obteniendo contenido de artículo para: '{query}'")
+        
+        try:
+            # Primero buscamos el artículo
+            search_results = self.scraper.search_wikipedia(query=query, limit=1)
+            
+            if not search_results:
+                self.logger.warning(f"No se encontraron artículos para la búsqueda: '{query}'")
+                return WikipediaRawContent(title="", content="")
+            
+            # Obtenemos el título del primer resultado
+            page_title = search_results[0]
+            self.logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto del artículo...")
+            
+            # Obtenemos el contenido del artículo
+            page_text = self.scraper.get_page_raw_text(page_title=page_title)
+            
+            if not page_text:
+                self.logger.warning(f"No se pudo obtener el texto del artículo '{page_title}'")
+                return WikipediaRawContent(title=page_title, content="")
+            
+            self.logger.info(f"Contenido del artículo '{page_title}' obtenido con éxito")
+            return WikipediaRawContent(title=page_title, content=page_text)
+            
+        except WikiScraperError as e:
+            self.logger.error(f"Error al obtener contenido para '{query}': {e}", exc_info=True)
+            raise PageContentServiceError(f"Error al obtener contenido del artículo: {e}") from e
+        except Exception as e:
+            self.logger.critical(f"Error INESPERADO al obtener contenido para '{query}': {e}", exc_info=True)
+            raise PageContentServiceError(f"Error inesperado al obtener contenido del artículo: {e}") from e

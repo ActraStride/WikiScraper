@@ -44,10 +44,10 @@ class WikiCLI:
 
     def __init__(
         self,
+        logger: logging.Logger,  # 1. Añade el parámetro logger con valor por defecto None
         language: str = DEFAULT_LANGUAGE,
         timeout: int = DEFAULT_TIMEOUT,
         log_level: str = "INFO",
-        logger: logging.Logger = None  # 1. Añade el parámetro logger con valor por defecto None
     ) -> None:
         """
         Inicializa la instancia de la CLI.
@@ -153,48 +153,46 @@ class WikiCLI:
         """
         Ejecuta el comando 'get' para obtener el texto de la primera página de Wikipedia
         que coincide con la búsqueda.
-
+        
         Args:
             query: Término de búsqueda para la página de Wikipedia.
+            save: Indica si se debe guardar el contenido en un archivo.
         """
         logger = self._logger
-        logger.info(f"Iniciando comando 'get' para buscar y obtener la página de Wikipedia para: '{query}'") # Usa el logger INYECTADO
-
+        logger.info(f"Iniciando comando 'get' para buscar y obtener la página de Wikipedia para: '{query}'")
+        
         try:
-            with self.scraper as scraper_instance: # 'scraper_instance' es el mismo que self.scraper
-                search_results: List[str] = scraper_instance.search_wikipedia(query=query, limit=1)
-                if not search_results:
-                    click.secho(f"No se encontraron páginas para la búsqueda: '{query}'.", fg="yellow")
-                    logger.warning(f"No se encontraron páginas para la búsqueda: '{query}'.") # Usa el logger INYECTADO
-                    return
-                else:
-                    page_title: str = search_results[0]
-                    logger.info(f"Primer resultado de búsqueda: '{page_title}'. Obteniendo texto de la página...") # Usa el logger INYECTADO
-                    page_text: str = scraper_instance.get_page_raw_text(page_title=page_title)
-                    if page_text:
-                        click.secho(f"Texto de la página '{page_title}':", fg="green", bold=True)
-                        click.echo(page_text)
-                        logger.info(f"Texto de la página '{page_title}' mostrado con éxito.") # Usa el logger INYECTADO
-
-                        if save:
-                            logger.info(f"Se proporcionó la opción de guardado'. Guardando página usando FileSaver...") # Usa el logger INYECTADO
-                            try:
-                                saved_path = self.file_saver.save(content=page_text, title=page_title) # Usando file_saver.save()
-                                click.secho(f"Página guardada'", fg="green")
-                                logger.info(f"Página '{page_title}' guardada con éxito") # Usa el logger INYECTADO
-                            except Exception as save_error:
-                                logger.error(f"Error al guardar la página' usando FileSaver: {save_error}", exc_info=True) # Usa el logger INYECTADO
-                                click.secho(f"❌ Error al guardar la página' usando FileSaver: {save_error}", fg="red", bold=True, err=True)
-                    else:
-                        click.secho(f"No se pudo obtener el texto de la página '{page_title}'.", fg="yellow")
-                        logger.warning(f"No se pudo obtener el texto de la página '{page_title}'.") # Usa el logger INYECTADO
-
+            # Usamos el servicio para obtener el contenido
+            article_content = self.service.get_article_raw_content(query=query)
+            
+            if not article_content.title:
+                click.secho(f"No se encontraron páginas para la búsqueda: '{query}'.", fg="yellow")
+                return
+            
+            if article_content.content:
+                click.secho(f"Texto de la página '{article_content.title}':", fg="green", bold=True)
+                click.echo(article_content.content)
+                logger.info(f"Texto de la página '{article_content.title}' mostrado con éxito.")
+                
+                # Parte de guardado se mantiene en la CLI
+                if save:
+                    logger.info(f"Se proporcionó la opción de guardado. Guardando página usando FileSaver...")
+                    try:
+                        saved_path = self.file_saver.save(content=article_content.content, title=article_content.title)
+                        click.secho(f"Página guardada", fg="green")
+                        logger.info(f"Página '{article_content.title}' guardada con éxito")
+                    except Exception as save_error:
+                        logger.error(f"Error al guardar la página usando FileSaver: {save_error}", exc_info=True)
+                        click.secho(f"❌ Error al guardar la página usando FileSaver: {save_error}", fg="red", bold=True, err=True)
+            else:
+                click.secho(f"No se pudo obtener el texto de la página '{article_content.title}'.", fg="yellow")
+                logger.warning(f"No se pudo obtener el texto de la página '{article_content.title}'.")
+        
         except Exception as e:
-            logger.error(f"Error durante el comando 'get' para '{query}': {e}", exc_info=True) # Usa el logger INYECTADO
+            logger.error(f"Error durante el comando 'get' para '{query}': {e}", exc_info=True)
             click.secho(f"❌ Error al obtener la página para '{query}': {e}", fg="red", bold=True, err=True)
-            sys.exit(3) # Usa sys.exit para indicar fallo del comando dentro de la CLI
-
-
+            sys.exit(3)
+            
 
     def execute_map_command(self, query: str, depth: int) -> None:
         """
@@ -267,20 +265,20 @@ def cli(ctx: click.Context, language: str, timeout: int, verbose: str) -> None:
     Configura el entorno de logging, inicializa la CLI principal (`WikiCLI`)
     y la almacena en el contexto de click (`ctx.obj`) para ser accesible a los comandos.
     """
+    project_root = Path(__file__).resolve().parent.parent.parent
+    setup_logging(project_root=project_root, log_level=verbose.upper()) # Log level ahora configurable aquí
+    logger = logging.getLogger(__name__) # Logger para el módulo cli
     try:
         # Configuración de logging centralizada
-        project_root = Path(__file__).resolve().parent.parent.parent
-        setup_logging(project_root=project_root, log_level=verbose.upper()) # Log level ahora configurable aquí
 
         # 5. Obtiene el logger DESPUÉS de configurar el logging
-        logger = logging.getLogger(__name__) # Logger para el módulo cli
 
         # Configuración del contexto de ejecución
         ctx.obj = WikiCLI(
             language=language,
             timeout=timeout,
             log_level=verbose.upper(),
-            logger=logger 
+            logger=logger
         )
 
         logger.debug(  # Usa el logger OBTENIDO en la función cli()
@@ -314,11 +312,11 @@ def test(ctx: click.Context) -> None:
     """
     Ejecuta un comando de prueba para verificar la instalación y configuración básica de la CLI.
     """
+    logger = ctx.obj._logger  # Get the logger from ctx.obj (now DI-aligned at command level)
     try:
         cli_instance: WikiCLI = ctx.obj
         cli_instance.execute_test_command()
     except Exception as e:
-        logger = ctx.obj.logger  # Get the logger from ctx.obj (now DI-aligned at command level)
         logger.error("Error durante comando de prueba", exc_info=True) # Log completo del error
         click.secho(
             f"❌ Fallo en comando de prueba: {e}",
@@ -372,7 +370,7 @@ def get(ctx: click.Context, query: str, save: bool) -> None: # output_dir reempl
         wiki get <query> --save  # Guardar en archivo (ubicación predeterminada)
         wiki get <query> -s     # Guardar en archivo (ubicación predeterminada)
     """
-    logger = ctx.obj.logger  # Get the logger from ctx.obj (now DI-aligned at command level)
+    logger = ctx.obj._logger  # Get the logger from ctx.obj (now DI-aligned at command level)
 
     try:
         cli_instance: click.Context = ctx.obj #  Asumiendo que ctx.obj contiene la instancia de WikiCLI

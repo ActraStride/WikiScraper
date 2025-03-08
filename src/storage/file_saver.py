@@ -28,7 +28,6 @@ VALID_ENCODINGS: Final[tuple] = ('utf-8', 'latin-1', 'iso-8859-1')
 MAX_FILENAME_LENGTH: Final[int] = 255
 SAFE_FILENAME_PATTERN: Final[str] = r"[^A-Za-z0-9_\-\.]"
 
-logger = logging.getLogger(__name__)
 
 class StorageError(Exception):
     """Excepción base para errores de almacenamiento."""
@@ -64,6 +63,7 @@ class FileSaver:
     
     def __init__(
         self,
+        logger: logging.Logger,
         output_dir: str = DEFAULT_OUTPUT_DIR,
         encoding: str = 'utf-8',
         timestamp_format: str = "%Y%m%d_%H%M%S"
@@ -82,7 +82,8 @@ class FileSaver:
         """
         self.output_dir = Path(output_dir)
         self.timestamp_format = timestamp_format
-        
+        self.logger = logger
+
         if encoding.lower() not in VALID_ENCODINGS:
             raise ValueError(f"Codificación no soportada: {encoding}. Usar: {', '.join(VALID_ENCODINGS)}")
         self.encoding = encoding.lower()
@@ -93,12 +94,12 @@ class FileSaver:
         """Crea el directorio de salida con verificación de permisos."""
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Directorio de almacenamiento listo: {self.output_dir}")
+            self.logger.info(f"Directorio de almacenamiento listo: {self.output_dir}")
         except PermissionError as e:
-            logger.critical(f"Permisos denegados para: {self.output_dir}")
+            self.logger.critical(f"Permisos denegados para: {self.output_dir}")
             raise DirectoryCreationError(f"Error de permisos: {e}") from e
         except OSError as e:
-            logger.critical(f"Error creando directorio: {e}")
+            self.logger.critical(f"Error creando directorio: {e}")
             raise DirectoryCreationError(f"Error de sistema: {e}") from e
             
     def sanitize_filename(self, filename: str) -> str:
@@ -142,7 +143,7 @@ class FileSaver:
                 safe_title = self.sanitize_filename(quote(title))
                 return f"{timestamp}_{safe_title}.txt"
             except InvalidFilenameError:
-                logger.warning("Título no válido, usando nombre generado")
+                self.logger.warning("Título no válido, usando nombre generado")
                 
         return f"{timestamp}_wikipedia_content.txt"
     
@@ -167,15 +168,15 @@ class FileSaver:
             with open(file_path, "w", encoding=self.encoding, errors="replace") as f:
                 f.write(content)
                 
-            logger.info(f"Archivo guardado exitosamente: {file_path}")
+            self.logger.info(f"Archivo guardado exitosamente: {file_path}")
             self._post_save_validation(file_path, content)
             return file_path
             
         except IOError as e:
-            logger.error(f"Error escribiendo archivo: {e}", exc_info=True)
+            self.logger.error(f"Error escribiendo archivo: {e}", exc_info=True)
             raise FileWriteError(f"Error de E/S: {e}") from e
         except UnicodeEncodeError as e:
-            logger.error(f"Error de encoding: {e}", exc_info=True)
+            self.logger.error(f"Error de encoding: {e}", exc_info=True)
             raise FileWriteError(f"Problema de codificación: {e}") from e
             
     def _post_save_validation(self, file_path: Path, original_content: str) -> None:
@@ -185,10 +186,10 @@ class FileSaver:
                 saved_content = f.read()
                 
             if saved_content != original_content:
-                logger.warning("Discrepancia en contenido guardado. Posible corrupción de datos.")
+                self.logger.warning("Discrepancia en contenido guardado. Posible corrupción de datos.")
                 
         except IOError as e:
-            logger.error(f"Error validando archivo: {e}")
+            self.logger.error(f"Error validando archivo: {e}")
 
     def __enter__(self):
         return self

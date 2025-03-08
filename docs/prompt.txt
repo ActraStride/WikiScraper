@@ -1,5 +1,35 @@
 # Texto introductorio
 
+
+.
+├── logs
+│   └── application.log
+├── pyproject.toml
+└── src
+    |
+    ├── cli
+    │   ├── cli.py
+    │   └── __init__.py
+    ├── database
+    ├── service
+    │   ├── __init__.py
+    │   ├── model
+    │   │   ├── __init__.py
+    │   └── wiki_service.py
+    ├── storage
+    │   ├── file_saver.py
+    │   └── __init__.py
+    ├── utils
+    │   ├── __init__.py
+    │   └── setup_logging.py
+    └── wikiscraper
+        ├── __init__.py
+        └── wikiscraper.py
+
+
+
+
+
 Este proyecto implementa un sistema modular para scraping de Wikipedia con estándares profesionales. Está compuesto por tres componentes principales: un scraper core (`WikiScraper`) que gestiona conexiones HTTP y extracción de datos, un sistema de almacenamiento (`FileSaver`) para guardar el contenido obtenido, y una interfaz de línea de comandos (`WikiCLI`) que proporciona una experiencia de usuario intuitiva. El sistema está diseñado con robustez en mente, implementando manejo de excepciones específicas, reintentos inteligentes, respeto por las políticas de uso de Wikipedia, y logging detallado. La arquitectura sigue principios SOLID, separando claramente las responsabilidades y permitiendo la extensión de funcionalidades sin modificar código existente.
 
 # Diagrama de conexión de clases

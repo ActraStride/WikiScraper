@@ -11,8 +11,8 @@ This module provides:
 - Detailed logging and flexible configuration
 - Compliance with robots.txt and usage policies
 
-Basic Usage:
-    >>> from wiki_scraper import WikiScraper
+Example:
+    >>> from wikiscraper import WikiScraper
     >>> with WikiScraper(language="es") as scraper:
     ...     soup = scraper.get_page_soup("Python")
     ...     print(soup.title.string)
@@ -32,7 +32,7 @@ from urllib3.util.retry import Retry
 
 
 # Constantes
-USER_AGENT: Final[str] = "WikiScraperBot/3.0 (+https://github.com/ActraStride/WikiScraper)"
+USER_AGENT: Final[str] = "WikiScraperBot/1.0.0 (+https://github.com/ActraStride/WikiScraper)"
 VALID_LANGUAGES: Final[Set[str]] = {"en", "ceb", "es", "fr", "de", "it", "pt", "ja", "zh", "ru", "ko", "nl", "ar", "simple"}
 DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_MAX_REDIRECTS: Final[int] = 3
@@ -83,8 +83,6 @@ class WikiScraper:
         max_redirects (int): Maximum limit of allowed HTTP redirects
 
     Methods:
-        get_page_soup(page_title: str) -> BeautifulSoup
-        _build_url(page_title: str) -> str
 
     Example:
         with WikiScraper(language="es") as scraper:
@@ -592,6 +590,7 @@ class WikiScraper:
         
         self.logger.info(f"Retrieved {len(all_links)} {link_type} links from '{page_title}'")
         return all_links
+                
                 
     def get_page_categories(self, page_title: str) -> List[str]:
         """

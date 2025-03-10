@@ -1,17 +1,21 @@
 [project]
-name = "wikiscraper" 
+name = "wikiscraper"
 version = "0.1.0"
-description = "" 
+description = ""
 dependencies = [
     "click >= 8.1.7",
+    "Flask >= 2.0.0",
+    "marshmallow >= 3.0.0",
     "beautifulsoup4 >= 4.10.0",
     "requests >= 2.28.0",
     "urllib3 >= 1.26.0",
     "lxml >= 4.6.0"
 ]
 
+
 [project.scripts]
 wiki = "src.cli:main"
+wikiscraper-api = "app:app"
 
 [tool.setuptools.packages]
 find = { include = ["src"] }

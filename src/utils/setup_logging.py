@@ -10,7 +10,7 @@ This module provides centralized logging configuration, including:
 - Consistent UTC timezone formatting
 
 Example:
-    >>> from src.utils.setup_logging import setup_logging
+    >>> from src.utils import setup_logging
     >>> setup_logging()
 """
 
@@ -98,7 +98,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
             },
             "console": {
                 "class": "logging.StreamHandler",
-                "level": "DEBUG",
+                "level": "WARNING",
                 "formatter": "standard",
                 "stream": sys.stdout,
             },
@@ -106,7 +106,7 @@ def get_logging_config(log_file_path: Path, log_level: str) -> dict:
         "loggers": {
             # Root logger configures all modules
             "": {
-                "handlers": ["rotating_file"],
+                "handlers": ["rotating_file", "console"],
                 "level": log_level,
                 "propagate": False,
             },

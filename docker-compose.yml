@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  wikiscraper-cli:
+    build: . # Construye la imagen desde el Dockerfile en el directorio actual
+    #  NO EXPOSEMOS PUERTOS, ya que es una CLI.
+    #  El comando para la CLI se especificará con 'docker-compose run'
+    #  Opcionalmente, podrías establecer un comando base si quieres ejecutar algo por defecto:
+    # command: ["wiki", "--help"]

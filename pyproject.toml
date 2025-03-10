@@ -15,7 +15,6 @@ dependencies = [
 
 [project.scripts]
 wiki = "src.cli:main"
-wikiscraper-api = "app:app"
 
 [tool.setuptools.packages]
 find = { include = ["src"] }

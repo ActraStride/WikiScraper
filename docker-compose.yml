@@ -1,8 +1,13 @@
-version: "3.9"
+version: "3.8"
+
 services:
-  wikiscraper-cli:
-    build: . # Construye la imagen desde el Dockerfile en el directorio actual
-    #  NO EXPOSEMOS PUERTOS, ya que es una CLI.
-    #  El comando para la CLI se especificará con 'docker-compose run'
-    #  Opcionalmente, podrías establecer un comando base si quieres ejecutar algo por defecto:
-    # command: ["wiki", "--help"]
+  wikiscraper:
+    build: .
+    volumes:
+      - .:/app  # Monta el directorio actual en /app dentro del contenedor
+    working_dir: /app  # Establece el directorio de trabajo en /app
+    stdin_open: true  # Mantiene la entrada estándar abierta
+    tty: true  # Activa el modo interactivo
+    environment:
+      - PYTHONPATH=/app/src  # Establece PYTHONPATH
+    command: /bin/bash  # Ejecuta bash por defecto

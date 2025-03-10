@@ -4,3 +4,11 @@ __pycache__
 *.pyd
 .env
 *.git
+*.egg-info/
+.installed.cfg
+*.egg
+data/
+docs/
+logs/
+*.log
+*.tmp

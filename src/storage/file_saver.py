@@ -23,7 +23,7 @@ from typing import Optional, Final
 from urllib.parse import quote
 
 # Constants
-DEFAULT_OUTPUT_DIR: Final[str] = "data"
+DEFAULT_OUTPUT_DIR: Final[str] = "/app/data"
 VALID_ENCODINGS: Final[tuple] = ('utf-8', 'latin-1', 'iso-8859-1')
 MAX_FILENAME_LENGTH: Final[int] = 255
 SAFE_FILENAME_PATTERN: Final[str] = r"[^A-Za-z0-9_\-\.]"

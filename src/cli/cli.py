@@ -176,43 +176,6 @@ class WikiCLI:
 
 
           
-    def execute_search_command(self, query: str, limit: int) -> None:
-        """
-        Executes the search command to find articles on Wikipedia using the WikiService.
-
-        This method performs the following actions:
-            1. Logs an informational message indicating the initiation of the search.
-            2. Calls the WikiService's 'search_articles' method to perform the actual search.
-            3. Processes the search results:
-                - If results are found, it prints them to the console in a numbered list with titles highlighted in green.
-                - If no results are found, it prints a warning message in yellow to the console and logs a warning.
-            4. Handles potential exceptions during the search process, logging an error message and exiting the CLI with an error code if an exception occurs.
-
-        Args:
-            query (str): The search term to look for on Wikipedia.
-            limit (int): The maximum number of search results to retrieve from the WikiService.
-
-        Raises:
-            SystemExit: If an exception occurs during the search operation. The CLI will exit with a status code of 3 to indicate a search command failure.
-        """
-        logger = self._logger  # Use the INJECTED logger instance for logging
-        logger.info(f"Initiating Wikipedia search (via service) for: '{query}' (limit: {limit} results)") # Log the start of the search operation with query and limit
-
-        try:
-            search_results = self.service.search_articles(query=query, limit=limit) # Call the WikiService to perform the article search
-            if search_results: # Check if search_results object contains any results (truthy if results are present)
-                click.secho(f"Search results for '{query}':", fg="green", bold=True) # Print a header for the search results in green and bold
-                for i, search_result in enumerate(search_results): # Iterate through the SearchResults object (assuming it's iterable)
-                    click.echo(f"{i+1}. {search_result.title}") # Print each search result with an index and its title
-            else:
-                click.secho(f"No results found for '{query}'.", fg="yellow") # Print a message in yellow indicating no results were found
-                logger.warning(f"No results found for '{query}'. Service returned no results for '{query}'.") # Log a warning message indicating no search results from the service
-        except Exception as e: # Catch any exception that might occur during the service call or result processing
-            logger.error(f"Error during search (via service) for '{query}': {e}", exc_info=True) # Log a detailed error message with exception info
-            click.secho(f"❌ Error performing search: {e}", fg="red", bold=True, err=True) # Print an error message to the console in red and bold
-            sys.exit(3) # Exit the CLI with an error code to indicate search command failure
-
-
     def execute_get_command(self, query: str, save: bool) -> None:
         """
         Executes the 'get' command to retrieve and display the text content of a Wikipedia page.
@@ -278,96 +241,54 @@ class WikiCLI:
 
     def execute_map_command(self, query: str, depth: int) -> None:
         """
-        Executes the 'map' command to recursively explore and map internal links of a Wikipedia page.
+        Executes the map command to explore and display a tree of linked pages from Wikipedia using the WikiService.
 
-        This command starts at a given Wikipedia page (defined by 'query') and recursively
-        follows internal links to a specified 'depth'. It generates a tree-like structure representing
-        the links found at each level of depth.
-
-        The method uses a recursive helper function 'recursive_map' to perform the link traversal.
+        This method performs the following actions:
+            1. Logs an informational message indicating the initiation of the page mapping.
+            2. Calls the WikiService's 'map_page_links' method to retrieve a tree of linked pages starting from the given query.
+            3. Processes the page tree:
+                - If a root node is found (meaning pages were mapped), it prints the tree structure to the console using the '_print_tree' method.
+                - If no root node is found (no pages mapped), it prints a warning message in yellow to the console and logs a warning.
+            4. Handles potential PageMappingServiceError exceptions during the mapping process, logging an error message and exiting the CLI with an error code if an exception occurs.
 
         Args:
-            query (str): The title of the starting Wikipedia page for mapping. This is the root page of the map.
-            depth (int): The maximum depth of recursion for mapping links. A depth of 1 will only map links from the initial page,
-                         depth 2 will map links from the initial page and then links from those linked pages, and so on.
+            query (str): The title of the Wikipedia page to start mapping links from.
+            depth (int): The maximum depth of links to explore in the page mapping.
 
-        Behavior:
-            - Initializes a recursive mapping process using the 'recursive_map' helper function.
-            - Handles potential exceptions during link retrieval within the recursive mapping, logging errors but continuing the process.
-            - After completing the mapping, it prints a formatted, tree-like representation of the link map to the console,
-              showing the page titles and their linked pages up to the specified depth.
-            - Logs informational messages at the start and completion of the 'map' command.
-
-        Output Structure:
-            The output is printed to the console as a hierarchical list, where each level of indentation represents a deeper level
-            in the link map. The root page is at the top, and pages linked from it are indented below, and so forth, up to the given depth.
-
-        Logging:
-            - Logs an info message when the 'map' command starts.
-            - Logs debug messages for each page being mapped during the recursive process.
-            - Logs error messages if there are issues retrieving links for a page, but the mapping continues for other pages.
-            - Logs an info message when the 'map' command completes.
+        Raises:
+            SystemExit: If a PageMappingServiceError occurs during the mapping operation. The CLI will exit with a status code of 3 to indicate a map command failure.
         """
-        logger = self._logger # Use the injected logger instance for logging
-        logger.info(f"Initiating 'map' command for page '{query}' with depth {depth}") # Log the start of the 'map' command
+        logger = self._logger  # Use the INJECTED logger instance
+        logger.info(f"Initiating page links mapping (via service) for: '{query}' (depth: {depth})") # Log the start of the mapping operation
 
-        def recursive_map(page_title: str, current_depth: int, max_depth: int, visited: set) -> dict:
-            """
-            Recursively maps internal links starting from a given page title.
+        try:
+            page_tree = self.wiki_service.map_page_links( # Call the WikiService to perform page mapping
+                root_title=query,
+                max_depth=depth
+            )
 
-            This is a helper function for 'execute_map_command' that performs the actual recursive link traversal.
+            if page_tree.root: # Check if a root node exists, indicating successful mapping
+                click.secho(f"Page links map for '{query}':", fg="green", bold=True) # Print a header for the map output
+                self._print_tree(page_tree.root) # Print the page tree recursively
+            else:
+                click.secho(f"No results found for page links mapping starting from '{query}'.", fg="yellow") # Print a warning message if no results
+                logger.warning(f"No results found for page links mapping. Service returned no root for query '{query}'.") # Log a warning message
 
-            Args:
-                page_title (str): The title of the Wikipedia page to map links from at the current level.
-                current_depth (int): The current depth of recursion. Starts at 1 for the initial page.
-                max_depth (int): The maximum recursion depth specified for the 'map' command.
-                visited (set): A set to keep track of already visited page titles to prevent infinite recursion
-                               in case of circular links and to avoid redundant processing.
+        except Exception as e: # Catch specific PageMappingServiceError
+            logger.error(f"Error during page links mapping (via service) for '{query}': {e}", exc_info=True) # Log detailed error with exception info
+            click.secho(f"❌ Error performing page links mapping: {e}", fg="red", bold=True, err=True) # Print error message to console in red and bold
+            sys.exit(3) # Exit the CLI with an error code to indicate map command failure
 
-            Returns:
-                dict: A dictionary representing the subtree of links starting from 'page_title'.
-                      The keys are linked page titles, and the values are recursively generated subtrees for those linked pages.
-                      Returns an empty dictionary if the current depth exceeds 'max_depth' or if the page has already been visited.
-            """
-            if current_depth > max_depth or page_title in visited: # Stop recursion if max depth is reached or page already visited
-                return {} # Return empty dict to terminate branch in mapping
 
-            visited.add(page_title) # Mark current page as visited to prevent cycles
+    def _print_tree(self, node: PageNode, indent: int = 0) -> None: # Assuming PageNode is forward-referenced or imported
+        """Prints the page tree recursively with formatting."""
+        prefix = "  " * indent + "- "
+        click.secho(prefix + node.title, fg="blue" if indent == 0 else "white") # Highlight root node in blue
 
-            logger.debug(f"Mapping page '{page_title}' at depth {current_depth}") # Log mapping action for the current page and depth
+        for child in node.children.values():
+            self._print_tree(child, indent + 1) # Recursive call for child nodes
 
-            try:
-                links = self.scraper.get_page_links(page_title=page_title, link_type="internal") # Fetch internal links for current page using scraper
-            except Exception as e: # Catch any exceptions during link retrieval
-                logger.error(f"Error getting links for page '{page_title}': {e}", exc_info=True) # Log error details if link retrieval fails
-                links = [] # If error, treat links as empty list to continue mapping without breaking
 
-            subtree = {} # Initialize dictionary to store links for the current page
-            for link in links: # Iterate through fetched links
-                subtree[link] = recursive_map(link, current_depth + 1, max_depth, visited) # Recursively call mapping for each link, incrementing depth
-
-            return subtree # Return the subtree of links from the current page
-
-        mapping = recursive_map(query, 1, depth, set()) # Start the recursive mapping process from the initial query page and depth 1
-
-        def print_mapping(mapping: dict, indent: int = 0) -> None:
-            """
-            Prints the link mapping in a formatted, tree-like structure to the console.
-
-            This helper function is used to display the nested dictionary structure generated by 'recursive_map'
-            in a readable format with indentation to represent the depth of links.
-
-            Args:
-                mapping (dict): The dictionary representing the link map (nested dictionary).
-                indent (int): The current indentation level for printing, used for visual hierarchy.
-            """
-            for page, sublinks in mapping.items(): # Iterate through the mapping dictionary (page title and its sublinks)
-                click.echo("  " * indent + f"- {page}") # Print page title with indentation representing depth
-                print_mapping(sublinks, indent + 1) # Recursively call print_mapping for sublinks, increasing indentation
-
-        click.secho(f"Link map for page '{query}':", fg="green", bold=True) # Print a header for the link map in green and bold
-        print_mapping({query: mapping}) # Start printing the link map, beginning with the initial query page as the root
-        logger.info(f"'map' command completed for page '{query}'") # Log completion of the 'map' command
 
 
 @click.group()

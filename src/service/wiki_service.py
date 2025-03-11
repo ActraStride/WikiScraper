@@ -195,3 +195,103 @@ class WikiService:
         except Exception as e:
             self.logger.critical(f"UNEXPECTED error retrieving content for '{query}': {e}", exc_info=True)
             raise PageContentServiceError(f"Unexpected error retrieving article content: {e}") from e
+        
+
+    def map_page_links(
+        self,
+        root_title: str,
+        max_depth: int,
+        include_errors: bool = False
+    ) -> PageTree:
+        """
+        Recursively maps the internal links of a Wikipedia page up to a specified depth.
+
+        Args:
+            root_title: Title of the root page for mapping.
+            max_depth: Maximum recursion depth (must be >= 1).
+            include_errors: If True, includes nodes that encountered scraping errors.
+
+        Returns:
+            PageTree: A tree structure representing the complete mapping.
+
+        Raises:
+            PageMappingServiceError: If a critical error occurs during the mapping process.
+        """
+        self.logger.info(f"Mapping page tree for '{root_title}' (depth: {max_depth})")
+        
+        if max_depth < 1:
+            raise PageMappingServiceError("Depth must be at least 1")
+
+        try:
+            root_node = PageNode(title=root_title)
+            visited = set()
+            
+            self._recursive_link_mapping(
+                current_node=root_node,
+                current_depth=1,
+                max_depth=max_depth,
+                visited=visited,
+                include_errors=include_errors
+            )
+            
+            return PageTree(root=root_node)
+        
+        except Exception as e:
+            self.logger.error(f"Critical mapping error: {str(e)}", exc_info=True)
+            raise PageMappingServiceError(f"Page mapping failed: {str(e)}") from e
+
+
+    def _recursive_link_mapping(
+        self,
+        current_node: PageNode,
+        current_depth: int,
+        max_depth: int,
+        visited: set,
+        include_errors: bool
+    ) -> None:
+        """
+        Internal recursive function for mapping page links.
+
+        Args:
+            current_node: The current page node being processed.
+            current_depth: The current recursion depth.
+            max_depth: The maximum allowed recursion depth.
+            visited: A set of page titles that have already been visited.
+            include_errors: Flag indicating whether to include nodes that encountered scraping errors.
+        """
+        if current_depth > max_depth:
+            return
+
+        if current_node.title in visited:
+            self.logger.debug(f"Skipping already visited page: {current_node.title}")
+            return
+
+        visited.add(current_node.title)
+        self.logger.debug(f"Processing page: {current_node.title} (depth {current_depth})")
+
+        try:
+            links = self.scraper.get_page_links(
+                page_title=current_node.title,
+                link_type="internal"
+            )
+        except WikiScraperError as e:
+            self.logger.warning(f"Error retrieving links for {current_node.title}: {str(e)}")
+            if include_errors:
+                error_node = PageNode(title=f"[ERROR] {current_node.title}")
+                current_node.add_child(error_node)
+            return
+
+        for link_title in links:
+            if link_title in visited:
+                continue
+
+            child_node = PageNode(title=link_title)
+            current_node.add_child(child_node)
+            
+            self._recursive_link_mapping(
+                current_node=child_node,
+                current_depth=current_depth + 1,
+                max_depth=max_depth,
+                visited=visited,
+                include_errors=include_errors
+            )

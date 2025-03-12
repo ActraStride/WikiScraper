@@ -4,106 +4,97 @@ from typing import List
 @dataclass
 class SearchResult:
     """
-    Modelo de datos para representar un resultado de búsqueda de Wikipedia.
+    Data model representing a Wikipedia search result.
 
-    Atributos:
-        title (str): El título del artículo de Wikipedia que es un resultado de búsqueda.
+    Attributes:
+        title (str): The title of the Wikipedia article matching the search query.
     """
     title: str
 
     def __str__(self):
         """
-        Retorna el título del artículo para una representación en string legible.
+        Returns the article title as a human-readable string representation.
 
-        Esto facilita la impresión del objeto `SearchResult` en ejemplos y logs,
-        mostrando directamente el título del artículo.
+        Simplifies printing and logging by directly showing the article title.
 
         Returns:
-            str: El título del artículo de búsqueda.
+            str: The title of the search result article.
         """
-        return self.title # Para facilitar la impresión en ejemplos y logs
+        return self.title
 
 @dataclass
 class SearchResults:
     """
-    Modelo de datos para representar una lista de resultados de búsqueda de Wikipedia.
+    Data model representing a collection of Wikipedia search results.
 
-    Encapsula una lista de objetos `SearchResult` y proporciona métodos para
-    facilitar el manejo y la inspección de la lista de resultados, como
-    verificar si la lista está vacía, iterar sobre los resultados,
-    obtener la cantidad de resultados y acceder a resultados individuales por índice.
+    Encapsulates a list of `SearchResult` objects and provides methods for
+    result management and inspection, including emptiness checks, iteration,
+    length retrieval, and indexed access.
 
-    Atributos:
-        results (List[SearchResult]): Una lista de objetos `SearchResult`,
-                                     cada uno representando un artículo encontrado en la búsqueda.
+    Attributes:
+        results (List[SearchResult]): List of `SearchResult` objects,
+                                      each representing a found Wikipedia article.
     """
     results: List[SearchResult]
 
     def __bool__(self):
         """
-        Permite evaluar `SearchResults` como booleano.
+        Enables boolean evaluation of `SearchResults`.
 
-        Un objeto `SearchResults` se considera `True` si contiene al menos un resultado,
-        y `False` si la lista de resultados está vacía. Esto es útil para verificar
-        rápidamente si una búsqueda devolvió algún resultado.
+        The object evaluates to `True` if it contains at least one result,
+        and `False` if the results list is empty. Useful for quick result presence checks.
 
         Returns:
-            bool: `True` si hay resultados en la lista, `False` en caso contrario.
+            bool: `True` if results exist, `False` otherwise.
         """
         return bool(self.results)
 
     def __iter__(self):
         """
-        Permite iterar directamente sobre los resultados contenidos en `SearchResults`.
+        Enables direct iteration over contained search results.
 
-        Esto hace que un objeto `SearchResults` sea iterable, permitiendo usarlo
-        en bucles `for` y otras construcciones que requieren iterables,
-        iterando sobre los objetos `SearchResult` individuales.
+        Makes `SearchResults` iterable, allowing use in `for` loops
+        and other iterable contexts.
 
         Yields:
-            SearchResult: Cada objeto `SearchResult` en la lista de resultados.
+            SearchResult: Individual search result objects from the results list.
         """
         return iter(self.results)
 
     def __len__(self):
         """
-        Devuelve el número de resultados de búsqueda contenidos en `SearchResults`.
+        Returns the number of search results in the collection.
 
-        Esto permite obtener la cantidad de artículos encontrados en la búsqueda
-        simplemente usando la función `len()` en un objeto `SearchResults`.
+        Allows usage of standard `len()` function to retrieve result count.
 
         Returns:
-            int: El número de resultados de búsqueda en la lista.
+            int: Number of search results contained.
         """
         return len(self.results)
 
     def __getitem__(self, index):
         """
-        Permite acceder a un resultado específico por su índice.
+        Provides indexed access to individual search results.
 
-        Funciona como el acceso por índice en una lista estándar de Python,
-        permitiendo obtener un objeto `SearchResult` específico de la lista
-        utilizando su posición (índice).
+        Implements list-like index access (0-based) to retrieve specific results.
+        Raises `IndexError` for out-of-range indices.
 
         Args:
-            index (int): El índice del resultado a obtener (basado en 0).
+            index (int): Positional index of the desired result (0-based).
 
         Returns:
-            SearchResult: El objeto `SearchResult` en la posición del índice especificado.
-                          Levanta `IndexError` si el índice está fuera de rango.
+            SearchResult: The search result at the specified index position.
         """
         return self.results[index]
 
     def __str__(self):
         """
-        Retorna una representación en string legible del objeto `SearchResults`.
+        Returns a human-readable string representation of the search results.
 
-        Esta representación incluye el número total de resultados y una lista de los
-        títulos de los artículos encontrados, facilitando la lectura en logs,
-        mensajes de depuración y ejemplos.
+        Format includes total result count and list of article titles,
+        useful for debugging and logging purposes.
 
         Returns:
-            str: Una cadena formateada que representa el objeto `SearchResults`,
-                 incluyendo el conteo de resultados y una lista de títulos.
+            str: Formatted string showing result count and titles.
         """
         return f"SearchResults(count={len(self)}, titles={[str(res) for res in self.results]})"

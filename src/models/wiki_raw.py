@@ -3,20 +3,26 @@ from dataclasses import dataclass
 @dataclass
 class WikipediaRawContent:
     """
-    Modelo de datos para representar el contenido crudo de un artículo de Wikipedia.
+    Data model representing the raw content of a Wikipedia article.
 
-    Atributos:
-        title (str): Título del artículo de Wikipedia.
-        content (str): Contenido textual completo del artículo en formato crudo.
+    Encapsulates unprocessed article content typically obtained directly from
+    Wikipedia's API before any parsing or transformation.
+
+    Attributes:
+        title (str): Canonical title of the Wikipedia article
+        content (str): Raw textual content of the article (unprocessed markup format)
     """
     title: str
     content: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Retorna el título del artículo para una representación en string legible.
-        
+        Provides a human-readable string representation of the article.
+
+        Maintains consistent string representation with other Wikipedia models
+        by returning only the article title for simplicity and readability.
+
         Returns:
-            str: Título del artículo, similar al comportamiento de SearchResult.
+            Article title as string identifier
         """
-        return self.title  # Mantenemos la misma lógica de representación simple
+        return self.title

@@ -5,13 +5,13 @@ from datetime import datetime
 @dataclass
 class WikipediaSection:
     """
-    Modelo de datos para representar una sección de un artículo de Wikipedia.
+    Data model representing a section within a Wikipedia article.
     
-    Atributos:
-        title (str): El título de la sección.
-        content (str): El contenido textual de la sección.
-        level (int): El nivel de jerarquía de la sección (1 para secciones principales, 2+ para subsecciones).
-        subsections (List['WikipediaSection']): Lista de subsecciones contenidas en esta sección.
+    Attributes:
+        title (str): Section heading text
+        content (str): Plain text content of the section
+        level (int): Hierarchical level (1 for main sections, 2+ for subsections)
+        subsections (List['WikipediaSection']): Nested subsections within this section
     """
     title: str
     content: str
@@ -19,42 +19,42 @@ class WikipediaSection:
     subsections: List['WikipediaSection'] = None
     
     def __post_init__(self):
+        """Initialize empty list for subsections if not provided"""
         if self.subsections is None:
             self.subsections = []
     
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Retorna una representación en string legible de la sección.
+        Provides human-readable string representation of the section.
         
         Returns:
-            str: El título de la sección.
+            Section title as string identifier
         """
         return self.title
 
 @dataclass
 class WikipediaArticle:
     """
-    Modelo de datos para representar un artículo completo de Wikipedia.
+    Comprehensive data model representing a Wikipedia article.
     
-    Encapsula toda la información relevante de un artículo de Wikipedia,
-    incluyendo su título, contenido, secciones, enlaces, referencias,
-    y metadatos como la fecha de última edición.
+    Encapsulates all relevant article information including content structure,
+    metadata, cross-references, and multilingual availability.
     
-    Atributos:
-        title (str): El título del artículo.
-        page_id (int): El identificador único del artículo en Wikipedia.
-        summary (str): Un resumen breve del contenido del artículo.
-        content (str): El contenido completo del artículo en texto plano.
-        url (str): La URL del artículo en Wikipedia.
-        last_edited (datetime): Fecha y hora de la última edición del artículo.
-        sections (List[WikipediaSection]): Lista de secciones del artículo.
-        categories (List[str]): Lista de categorías a las que pertenece el artículo.
-        links (List[str]): Lista de enlaces internos a otros artículos de Wikipedia.
-        external_links (List[str]): Lista de enlaces externos referenciados en el artículo.
-        images (List[str]): Lista de URLs de imágenes incluidas en el artículo.
-        references (List[str]): Lista de referencias bibliográficas del artículo.
-        infobox (Dict[str, str]): Información estructurada del artículo (datos de la caja de información).
-        languages (Dict[str, str]): Diccionario de enlaces a versiones del artículo en otros idiomas.
+    Attributes:
+        title (str): Article title
+        page_id (int): Unique Wikipedia page identifier
+        summary (str): Concise article summary
+        content (str): Full article text content
+        url (str): Canonical Wikipedia URL
+        last_edited (datetime): Timestamp of most recent edit
+        sections (List[WikipediaSection]): Hierarchical content sections
+        categories (List[str]): Associated categorization tags
+        links (List[str]): Internal Wikipedia article links
+        external_links (List[str]): External website references
+        images (List[str]): Embedded image URLs
+        references (List[str]): Citation sources
+        infobox (Dict[str, str]): Structured key-value data table
+        languages (Dict[str, str]): Available language versions (ISO code → URL)
     """
     title: str
     page_id: int
@@ -71,26 +71,26 @@ class WikipediaArticle:
     infobox: Dict[str, str]
     languages: Dict[str, str]
     
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Retorna una representación en string legible del artículo.
+        Standard string representation for quick identification.
         
         Returns:
-            str: Una cadena que muestra el título del artículo y su URL.
+            Formatted string containing title and URL
         """
         return f"WikipediaArticle(title={self.title}, url={self.url})"
     
     def get_section(self, section_title: str) -> Optional[WikipediaSection]:
         """
-        Busca y devuelve una sección específica del artículo por su título.
+        Recursively retrieves a section by its title.
         
-        La búsqueda se realiza de forma recursiva en todas las secciones y subsecciones.
+        Performs case-insensitive search through all sections and subsections.
         
         Args:
-            section_title (str): El título de la sección a buscar.
+            section_title: Target section heading text
             
         Returns:
-            Optional[WikipediaSection]: La sección encontrada o None si no existe.
+            Matched WikipediaSection object or None if not found
         """
         def search_in_sections(sections, title):
             for section in sections:
@@ -107,43 +107,42 @@ class WikipediaArticle:
     
     def has_category(self, category: str) -> bool:
         """
-        Verifica si el artículo pertenece a una categoría específica.
+        Determines article membership in a specified category.
         
         Args:
-            category (str): El nombre de la categoría a verificar.
+            category: Category name to verify
             
         Returns:
-            bool: True si el artículo pertenece a la categoría, False en caso contrario.
+            True if article belongs to category, False otherwise
         """
         return any(cat.lower() == category.lower() for cat in self.categories)
     
     def count_references(self) -> int:
         """
-        Cuenta el número total de referencias bibliográficas en el artículo.
+        Calculates total number of bibliographic references.
         
         Returns:
-            int: El número de referencias bibliográficas.
+            Count of reference entries
         """
         return len(self.references)
     
     def get_main_sections(self) -> List[WikipediaSection]:
         """
-        Devuelve las secciones principales del artículo (nivel 1).
+        Retrieves top-level sections of the article.
         
         Returns:
-            List[WikipediaSection]: Lista de secciones principales.
+            List of level 1 WikipediaSection objects
         """
         return [section for section in self.sections if section.level == 1]
     
     def get_translation_url(self, language_code: str) -> Optional[str]:
         """
-        Obtiene la URL del artículo en otro idioma.
+        Retrieves localized version URL for specified language.
         
         Args:
-            language_code (str): El código del idioma (por ejemplo, 'en', 'fr', 'de').
+            language_code: ISO 639 language code (e.g., 'en', 'es', 'fr')
             
         Returns:
-            Optional[str]: La URL del artículo en el idioma especificado,
-                          o None si no existe traducción para ese idioma.
+            URL string for target language version, or None if unavailable
         """
         return self.languages.get(language_code)

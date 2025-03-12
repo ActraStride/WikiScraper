@@ -262,7 +262,7 @@ class WikiCLI:
         logger.info(f"Initiating page links mapping (via service) for: '{query}' (depth: {depth})") # Log the start of the mapping operation
 
         try:
-            page_tree = self.wiki_service.map_page_links( # Call the WikiService to perform page mapping
+            page_tree = self.service.map_page_links( # Call the WikiService to perform page mapping
                 root_title=query,
                 max_depth=depth
             )
@@ -280,7 +280,7 @@ class WikiCLI:
             sys.exit(3) # Exit the CLI with an error code to indicate map command failure
 
 
-    def _print_tree(self, node: PageNode, indent: int = 0) -> None: # Assuming PageNode is forward-referenced or imported
+    def _print_tree(self, node: Any, indent: int = 0) -> None: # Assuming PageNode is forward-referenced or imported
         """Prints the page tree recursively with formatting."""
         prefix = "  " * indent + "- "
         click.secho(prefix + node.title, fg="blue" if indent == 0 else "white") # Highlight root node in blue

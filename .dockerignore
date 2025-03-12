@@ -12,3 +12,4 @@ docs/
 logs/
 *.log
 *.tmp
+venv/

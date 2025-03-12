@@ -175,6 +175,43 @@ class WikiCLI:
         logger.debug("Test command executed successfully") # Log successful execution of the test command using the injected logger
 
 
+    def execute_search_command(self, query: str, limit: int) -> None:
+        """
+        Executes the search command to find articles on Wikipedia using the WikiService.
+
+        This method performs the following actions:
+            1. Logs an informational message indicating the initiation of the search.
+            2. Calls the WikiService's 'search_articles' method to perform the actual search.
+            3. Processes the search results:
+                - If results are found, it prints them to the console in a numbered list with titles highlighted in green.
+                - If no results are found, it prints a warning message in yellow to the console and logs a warning.
+            4. Handles potential exceptions during the search process, logging an error message and exiting the CLI with an error code if an exception occurs.
+
+        Args:
+            query (str): The search term to look for on Wikipedia.
+            limit (int): The maximum number of search results to retrieve from the WikiService.
+
+        Raises:
+            SystemExit: If an exception occurs during the search operation. The CLI will exit with a status code of 3 to indicate a search command failure.
+        """
+        logger = self._logger  # Use the INJECTED logger instance for logging
+        logger.info(f"Initiating Wikipedia search (via service) for: '{query}' (limit: {limit} results)") # Log the start of the search operation with query and limit
+
+        try:
+            search_results = self.service.search_articles(query=query, limit=limit) # Call the WikiService to perform the article search
+            if search_results: # Check if search_results object contains any results (truthy if results are present)
+                click.secho(f"Search results for '{query}':", fg="green", bold=True) # Print a header for the search results in green and bold
+                for i, search_result in enumerate(search_results): # Iterate through the SearchResults object (assuming it's iterable)
+                    click.echo(f"{i+1}. {search_result.title}") # Print each search result with an index and its title
+            else:
+                click.secho(f"No results found for '{query}'.", fg="yellow") # Print a message in yellow indicating no results were found
+                logger.warning(f"No results found for '{query}'. Service returned no results for '{query}'.") # Log a warning message indicating no search results from the service
+        except Exception as e: # Catch any exception that might occur during the service call or result processing
+            logger.error(f"Error during search (via service) for '{query}': {e}", exc_info=True) # Log a detailed error message with exception info
+            click.secho(f"❌ Error performing search: {e}", fg="red", bold=True, err=True) # Print an error message to the console in red and bold
+            sys.exit(3) # Exit the CLI with an error code to indicate search command failure
+
+
           
     def execute_get_command(self, query: str, save: bool) -> None:
         """

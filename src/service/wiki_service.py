@@ -38,7 +38,7 @@ from typing import List, Dict, Set
 
 from src.wikiscraper import WikiScraper, WikiScraperError  
 from src.storage import FileSaver 
-from src.service.models import *
+from src.models import *
 from pathlib import Path 
 
 class WikiServiceError(Exception):

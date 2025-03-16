@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Final
 from logging.handlers import RotatingFileHandler
 
-from src.errors import Lo
+from src.errors.core import * 
 
 # Immutable constants (type hinted)
 LOG_DIR_NAME: Final[str] = "logs"
@@ -36,9 +36,6 @@ LOG_MAX_BYTES: Final[int] = 10 * 1024 * 1024  # 10 MB
 LOG_BACKUP_COUNT: Final[int] = 5
 LOG_ENCODING: Final[str] = "utf-8"
 
-class LoggingSetupError(Exception):
-    """Custom exception for logging configuration errors."""
-    pass
 
 def get_log_dir(project_root: Path = None) -> Path:
     """

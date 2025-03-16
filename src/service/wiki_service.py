@@ -37,28 +37,11 @@ import logging
 from typing import List, Dict, Set
 
 from src.wikiscraper import WikiScraper, WikiScraperError  
-from src.storage import FileSaver 
+from src.graph import GraphManager 
 from src.models import *
 from pathlib import Path 
 
-class WikiServiceError(Exception):
-    """Base class for general WikiService errors."""
-    pass
-
-
-class SearchServiceError(WikiServiceError):
-    """Raised when a specific error occurs during a search operation in the service."""
-    pass
-
-
-class PageContentServiceError(WikiServiceError):
-    """Raised when there is an error retrieving content from a page."""
-    pass
-
-class PageMappingServiceError(WikiServiceError):
-    """Raised when an error occurs during the mapping of page links."""
-    pass
-
+from src.errors.service import *
 
 class WikiService:
     """Provides a centralized service to interact with Wikipedia.
@@ -83,7 +66,7 @@ class WikiService:
         
     """
 
-    def __init__(self, scraper: 'WikiScraper', file_saver: 'FileSaver', logger: logging.Logger) -> None:
+    def __init__(self, scraper: 'WikiScraper', graph_manager: 'GraphManager', logger: logging.Logger) -> None:
         """Initializes the WikiService with its dependencies.
 
         The WikiService depends on a `WikiScraper` for fetching data from
@@ -99,7 +82,7 @@ class WikiService:
                     Used for logging events, errors, and debugging within the service.
         """
         self.scraper = scraper
-        self.file_saver = file_saver  # Store FileSaver if service needs it for operations
+        self.graph_manager = graph_manager 
         self.logger = logger
         self.logger.debug("WikiService initialized successfully.")
 

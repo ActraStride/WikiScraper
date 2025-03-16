@@ -28,6 +28,8 @@ from urllib.parse import quote, urljoin
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from src.errors.wiki import *
+
 # Configuración de logging
 
 
@@ -38,37 +40,6 @@ DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_MAX_REDIRECTS: Final[int] = 3
 DEFAULT_TIMEOUT: Final[int] = 15
 DEFAULT_PARSER: Final[str] = "lxml"
-
-
-class WikiScraperError(Exception):
-    """Base exception for errors in the scraping module."""
-    pass
-
-class InvalidPageTitleError(WikiScraperError):
-    """Exception for invalid or empty page titles."""
-    pass
-
-class ParsingError(WikiScraperError):
-    """Exception for errors during HTML content parsing."""
-    pass
-
-class LanguageNotSupportedError(WikiScraperError):
-    """Exception for unsupported language codes."""
-    pass
-
-class NonHTMLContentError(WikiScraperError):
-    """Exception for responses with non-HTML content."""
-    pass
-
-
-class SearchError(WikiScraperError):
-    """General exception for errors during Wikipedia search."""
-    pass
-
-
-class NoSearchResultsError(SearchError):
-    """Specific exception for when a search returns no results."""
-    pass
 
 
 class WikiScraper:

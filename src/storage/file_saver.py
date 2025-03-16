@@ -22,28 +22,13 @@ from datetime import datetime
 from typing import Optional, Final
 from urllib.parse import quote
 
+from src.errors.storage import *
+
 # Constants
 DEFAULT_OUTPUT_DIR: Final[str] = "/app/data"
 VALID_ENCODINGS: Final[tuple] = ('utf-8', 'latin-1', 'iso-8859-1')
 MAX_FILENAME_LENGTH: Final[int] = 255
 SAFE_FILENAME_PATTERN: Final[str] = r"[^A-Za-z0-9_\-\.]"
-
-
-class StorageError(Exception):
-    """Base class for storage related exceptions."""
-    pass
-
-class DirectoryCreationError(StorageError):
-    """Raised when directory creation fails."""
-    pass
-
-class FileWriteError(StorageError):
-    """Raised when writing to a file fails."""
-    pass
-
-class InvalidFilenameError(StorageError):
-    """Raised when a filename is considered invalid or unsafe."""
-    pass
 
 
 class FileSaver:

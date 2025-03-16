@@ -1,7 +1,7 @@
 from typing import Dict
 
 from src.models import *
-from src.
+from src.errors.graph import *
 
 class GraphManager:
     """Manages the creation and manipulation of WikiGraph objects.

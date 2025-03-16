@@ -39,7 +39,7 @@ class WikiEdge:
 class WikiGraph:
     """Represents a graph structure of Wikipedia page connections.
     
-    Maintains a repository of nodes and their relationships, tracking various metrics.
+    Pure data structure containing nodes and edges with basic access methods.
     
     Attributes:
         nodes: Repository of all nodes in the graph (title → node mapping)
@@ -55,74 +55,6 @@ class WikiGraph:
     total_nodes: int = 0
     error_count: int = 0
     max_depth_explored: int = 0
-    
-    def add_or_get_node(self, title: str, is_error: bool = False, metadata: Dict = None) -> WikiNode:
-        """Adds a node to the graph if it doesn't exist or returns the existing one.
-        
-        Args:
-            title: Title of the Wikipedia page
-            is_error: Flag indicating if page retrieval failed
-            metadata: Optional additional information about the node
-            
-        Returns:
-            WikiNode: The new or existing node
-        """
-        if title in self.nodes:
-            return self.nodes[title]
-        
-        node = WikiNode(
-            title=title,
-            is_error=is_error,
-            metadata=metadata or {}
-        )
-        
-        self.nodes[title] = node
-        self.total_nodes += 1
-        
-        if is_error:
-            self.error_count += 1
-            
-        return node
-    
-    def add_relationship(self, source_title: str, target_title: str, 
-                         rel_type: str = "LINKS_TO", metadata: Dict = None) -> WikiEdge:
-        """Creates a relationship (edge) between two nodes.
-        
-        Args:
-            source_title: Title of the source node
-            target_title: Title of the target node
-            rel_type: Type of relationship
-            metadata: Optional additional information about the relationship
-            
-        Returns:
-            WikiEdge: The newly created edge
-            
-        Raises:
-            KeyError: If either source or target node doesn't exist in the graph
-        """
-        # Ensure both nodes exist
-        if source_title not in self.nodes:
-            raise KeyError(f"Source node '{source_title}' not found in graph")
-        if target_title not in self.nodes:
-            raise KeyError(f"Target node '{target_title}' not found in graph")
-        
-        edge = WikiEdge(
-            source=source_title,
-            target=target_title,
-            rel_type=rel_type,
-            metadata=metadata or {}
-        )
-        
-        self.edges.append(edge)
-        return edge
-    
-    def update_metrics(self, depth: int) -> None:
-        """Updates graph statistics after exploration.
-        
-        Args:
-            depth: Current depth level of exploration
-        """
-        self.max_depth_explored = max(self.max_depth_explored, depth)
     
     def get_node(self, title: str) -> Optional[WikiNode]:
         """Retrieves a node by its title.

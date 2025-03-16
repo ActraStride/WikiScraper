@@ -297,11 +297,11 @@ class WikiService:
             )
 
     def map_page_graph(
-        self,
-        root_title: str,
-        max_depth: int,
-        include_errors: bool = False
-    ) -> WikiGraph:
+            self,
+            root_title: str,
+            max_depth: int,
+            include_errors: bool = False
+        ) -> WikiGraph:
         """
         Recursively maps the internal links of a Wikipedia page into a graph up to a specified depth.
         
@@ -322,11 +322,7 @@ class WikiService:
             raise PageMappingServiceError("Depth must be at least 1")
             
         try:
-            graph = WikiGraph()
-            graph.root_title = root_title
-            
-            # Create root node
-            graph.add_or_get_node(root_title)
+            graph = self.graph_manager.create_graph(root_title)
             
             # Track visited nodes during exploration (for traversal control only)
             exploration_visited = set()
@@ -374,7 +370,7 @@ class WikiService:
             return
             
         exploration_visited.add(current_title)
-        graph.update_metrics(current_depth)
+        self.graph_manager.update_metrics(graph, current_depth)
         
         self.logger.debug(f"Processing page: {current_title} (depth {current_depth})")
         
@@ -385,11 +381,8 @@ class WikiService:
             )
             
             for link_title in links:
-                # Add target node if it doesn't exist
-                target_node = graph.add_or_get_node(link_title)
-                
-                # Create a LINKS_TO relationship
-                graph.add_relationship(current_title, link_title, "LINKS_TO")
+                # Add the link using the graph manager
+                self.graph_manager.add_link(graph, current_title, link_title)
                 
                 # Only explore deeper if we haven't visited this page and we're not at max depth
                 if link_title not in exploration_visited and current_depth < max_depth:
@@ -405,6 +398,4 @@ class WikiService:
         except WikiScraperError as e:
             self.logger.warning(f"Error retrieving links for {current_title}: {str(e)}")
             if include_errors:
-                error_title = f"[ERROR] {current_title}"
-                error_node = graph.add_or_get_node(error_title, is_error=True)
-                graph.add_relationship(current_title, error_title, "ERROR")
+                self.graph_manager.add_error_node(graph, current_title)

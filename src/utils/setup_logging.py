@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Final
 from logging.handlers import RotatingFileHandler
 
+from src.errors import Lo
+
 # Immutable constants (type hinted)
 LOG_DIR_NAME: Final[str] = "logs"
 LOG_FILE_NAME: Final[str] = "application.log"

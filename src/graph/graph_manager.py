@@ -1,142 +1,213 @@
+from typing import Dict
+
 from src.models import *
+from src.
 
 class GraphManager:
-    """Manages the creation and manipulation of WikiGraph objects."""
+    """Manages the creation and manipulation of WikiGraph objects.
+    
+    Handles all operations that modify the graph structure, separating
+    the concerns of graph operations from the data structure itself.
+    """
     
     def __init__(self, logger=None):
+        """Initialize the GraphManager.
+        
+        Args:
+            logger: Optional logger instance for tracking operations
+        """
         self.logger = logger
     
     def create_graph(self, root_title: str) -> WikiGraph:
-        """Creates a new graph with the given root title."""
-        graph = WikiGraph()
-        graph.root_title = root_title
-        graph.add_or_get_node(root_title)
-        return graph
-        
-    def add_link(self, graph: WikiGraph, source_title: str, target_title: str) -> None:
-        """Adds a link relationship between source and target pages."""
-        # Add target node if it doesn't exist
-        graph.add_or_get_node(target_title)
-        
-        # Create a LINKS_TO relationship
-        graph.add_relationship(source_title, target_title, "LINKS_TO")
-    
-    def add_error_node(self, graph: WikiGraph, source_title: str) -> None:
-        """Adds an error node connected to the source page."""
-        error_title = f"[ERROR] {source_title}"
-        graph.add_or_get_node(error_title, is_error=True)
-        graph.add_relationship(source_title, error_title, "ERROR")
-
-
-class WikiService:
-    def __init__(self, scraper, logger=None):
-        self.scraper = scraper
-        self.logger = logger
-        self.graph_manager = GraphManager(logger)
-    
-    def map_page_graph(
-        self,
-        root_title: str,
-        max_depth: int,
-        include_errors: bool = False
-    ) -> WikiGraph:
-        """
-        Recursively maps the internal links of a Wikipedia page into a graph up to a specified depth.
+        """Creates a new graph with the given root title.
         
         Args:
-            root_title: Title of the root page for mapping.
-            max_depth: Maximum recursion depth (must be >= 1).
-            include_errors: If True, includes nodes that encountered scraping errors.
+            root_title: Title of the root page
             
         Returns:
-            WikiGraph: A graph structure representing the complete mapping.
+            WikiGraph: A new graph with the root node added
             
         Raises:
-            PageMappingServiceError: If a critical error occurs during the mapping process.
+            GraphCreationError: If the graph cannot be created
+            InvalidTitleError: If the root title is invalid
         """
-        self.logger.info(f"Mapping page graph for '{root_title}' (depth: {max_depth})")
-        
-        if max_depth < 1:
-            raise PageMappingServiceError("Depth must be at least 1")
+        if not root_title or not isinstance(root_title, str):
+            if self.logger:
+                self.logger.error(f"Invalid root title: {root_title}")
+            raise InvalidTitleError(f"Invalid root title: {root_title}")
             
         try:
-            # Create a new graph with the root node
-            graph = self.graph_manager.create_graph(root_title)
-            
-            # Track visited nodes during exploration (for traversal control only)
-            exploration_visited = set()
-            
-            self._recursive_graph_mapping(
-                current_title=root_title,
-                graph=graph,
-                current_depth=1,
-                max_depth=max_depth,
-                exploration_visited=exploration_visited,
-                include_errors=include_errors
-            )
-            
+            graph = WikiGraph()
+            graph.root_title = root_title
+            self.add_node(graph, root_title)
             return graph
-            
         except Exception as e:
-            self.logger.error(f"Critical mapping error: {str(e)}", exc_info=True)
-            raise PageMappingServiceError(f"Page mapping failed: {str(e)}") from e
-
-    def _recursive_graph_mapping(
-        self,
-        current_title: str,
-        graph: WikiGraph,
-        current_depth: int,
-        max_depth: int,
-        exploration_visited: set,
-        include_errors: bool
-    ) -> None:
-        """
-        Internal recursive function for mapping page links into a graph.
+            if self.logger:
+                self.logger.error(f"Failed to create graph with root '{root_title}': {str(e)}")
+            raise GraphCreationError(f"Failed to create graph with root '{root_title}': {str(e)}") from e
+    
+    def add_node(self, graph: WikiGraph, title: str, is_error: bool = False, 
+                 metadata: Dict = None) -> WikiNode:
+        """Adds a node to the graph if it doesn't exist or returns the existing one.
         
         Args:
-            current_title: The title of the current page being processed.
-            graph: The graph being built.
-            current_depth: The current recursion depth.
-            max_depth: The maximum allowed recursion depth.
-            exploration_visited: A set of page titles that have already been visited during exploration.
-            include_errors: Flag indicating whether to include nodes that encountered scraping errors.
+            graph: The graph to modify
+            title: Title of the Wikipedia page
+            is_error: Flag indicating if page retrieval failed
+            metadata: Optional additional information about the node
+            
+        Returns:
+            WikiNode: The new or existing node
+            
+        Raises:
+            InvalidTitleError: If the title is invalid
+            NodeError: If there's an issue adding the node
         """
-        if current_depth > max_depth:
-            return
+        if not title or not isinstance(title, str):
+            if self.logger:
+                self.logger.error(f"Invalid node title: {title}")
+            raise InvalidTitleError(f"Invalid node title: {title}")
             
-        if current_title in exploration_visited:
-            self.logger.debug(f"Skipping already visited page during exploration: {current_title}")
-            return
-            
-        exploration_visited.add(current_title)
-        graph.update_metrics(current_depth)
-        
-        self.logger.debug(f"Processing page: {current_title} (depth {current_depth})")
-        
         try:
-            links = self.scraper.get_page_links(
-                page_title=current_title,
-                link_type="internal"
+            if title in graph.nodes:
+                return graph.nodes[title]
+            
+            node = WikiNode(
+                title=title,
+                is_error=is_error,
+                metadata=metadata or {}
             )
             
-            for link_title in links:
-                # Add the link to the graph
-                self.graph_manager.add_link(graph, current_title, link_title)
+            graph.nodes[title] = node
+            graph.total_nodes += 1
+            
+            if is_error:
+                graph.error_count += 1
                 
-                # Only explore deeper if we haven't visited this page and we're not at max depth
-                if link_title not in exploration_visited and current_depth < max_depth:
-                    self._recursive_graph_mapping(
-                        current_title=link_title,
-                        graph=graph,
-                        current_depth=current_depth + 1,
-                        max_depth=max_depth,
-                        exploration_visited=exploration_visited,
-                        include_errors=include_errors
-                    )
-                    
-        except WikiScraperError as e:
-            self.logger.warning(f"Error retrieving links for {current_title}: {str(e)}")
-            if include_errors:
-                self.graph_manager.add_error_node(graph, current_title)
-
-
+            return node
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to add node '{title}': {str(e)}")
+            raise NodeError(f"Failed to add node '{title}': {str(e)}") from e
+    
+    def add_relationship(self, graph: WikiGraph, source_title: str, target_title: str, 
+                         rel_type: str = "LINKS_TO", metadata: Dict = None) -> WikiEdge:
+        """Creates a relationship (edge) between two nodes.
+        
+        Args:
+            graph: The graph to modify
+            source_title: Title of the source node
+            target_title: Title of the target node
+            rel_type: Type of relationship
+            metadata: Optional additional information about the relationship
+            
+        Returns:
+            WikiEdge: The newly created edge
+            
+        Raises:
+            InvalidTitleError: If either title is invalid
+            NodeError: If either node doesn't exist in the graph
+            RelationshipError: If there's an issue adding the relationship
+        """
+        if not source_title or not isinstance(source_title, str):
+            if self.logger:
+                self.logger.error(f"Invalid source title: {source_title}")
+            raise InvalidTitleError(f"Invalid source title: {source_title}")
+            
+        if not target_title or not isinstance(target_title, str):
+            if self.logger:
+                self.logger.error(f"Invalid target title: {target_title}")
+            raise InvalidTitleError(f"Invalid target title: {target_title}")
+            
+        try:
+            # Ensure both nodes exist
+            if source_title not in graph.nodes:
+                if self.logger:
+                    self.logger.error(f"Source node '{source_title}' not found in graph")
+                raise NodeError(f"Source node '{source_title}' not found in graph")
+                
+            if target_title not in graph.nodes:
+                if self.logger:
+                    self.logger.error(f"Target node '{target_title}' not found in graph")
+                raise NodeError(f"Target node '{target_title}' not found in graph")
+            
+            edge = WikiEdge(
+                source=source_title,
+                target=target_title,
+                rel_type=rel_type,
+                metadata=metadata or {}
+            )
+            
+            graph.edges.append(edge)
+            return edge
+        except NodeError:
+            # Re-raise NodeError as is
+            raise
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to add relationship from '{source_title}' to '{target_title}': {str(e)}")
+            raise RelationshipError(f"Failed to add relationship from '{source_title}' to '{target_title}': {str(e)}") from e
+    
+    def add_link(self, graph: WikiGraph, source_title: str, target_title: str) -> None:
+        """Adds a link relationship between source and target pages.
+        
+        Args:
+            graph: The graph to modify
+            source_title: Title of the source page
+            target_title: Title of the target page
+            
+        Raises:
+            InvalidTitleError: If either title is invalid
+            NodeError: If the source node doesn't exist
+            RelationshipError: If there's an issue adding the relationship
+        """
+        try:
+            # Add target node if it doesn't exist
+            self.add_node(graph, target_title)
+            # Create a LINKS_TO relationship
+            self.add_relationship(graph, source_title, target_title, "LINKS_TO")
+        except (InvalidTitleError, NodeError, RelationshipError):
+            # Re-raise these specific exceptions
+            raise
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to add link from '{source_title}' to '{target_title}': {str(e)}")
+            raise RelationshipError(f"Failed to add link from '{source_title}' to '{target_title}': {str(e)}") from e
+    
+    def add_error_node(self, graph: WikiGraph, source_title: str) -> None:
+        """Adds an error node connected to the source page.
+        
+        Args:
+            graph: The graph to modify
+            source_title: Title of the source page
+            
+        Raises:
+            InvalidTitleError: If the source title is invalid
+            NodeError: If the source node doesn't exist
+            RelationshipError: If there's an issue adding the relationship
+        """
+        try:
+            error_title = f"[ERROR] {source_title}"
+            self.add_node(graph, error_title, is_error=True)
+            self.add_relationship(graph, source_title, error_title, "ERROR")
+        except (InvalidTitleError, NodeError, RelationshipError):
+            # Re-raise these specific exceptions
+            raise
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to add error node for '{source_title}': {str(e)}")
+            raise NodeError(f"Failed to add error node for '{source_title}': {str(e)}") from e
+    
+    def update_metrics(self, graph: WikiGraph, depth: int) -> None:
+        """Updates graph statistics after exploration.
+        
+        Args:
+            graph: The graph to update
+            depth: Current depth level of exploration
+        """
+        try:
+            graph.max_depth_explored = max(graph.max_depth_explored, depth)
+        except Exception as e:
+            if self.logger:
+                self.logger.warning(f"Failed to update graph metrics: {str(e)}")
+            # Non-critical operation, so just log and continue
